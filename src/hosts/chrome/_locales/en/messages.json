@@ -1,0 +1,5 @@
+{
+  "extName": { "message": "Persona — animated companion" },
+  "extDescription": { "message": "A small, customisable animated companion that lives on your web pages. Free, no account or API key." },
+  "cmdToggle": { "message": "Hide / show the companion" }
+}

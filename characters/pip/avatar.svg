@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140" data-rig="persona-rig@1">
+  <title>Pip</title>
+  <defs>
+    <radialGradient id="pip-skin" cx="38%" cy="32%" r="75%">
+      <stop offset="0" stop-color="#C9F7EC"/>
+      <stop offset="0.55" stop-color="#7FDCC6"/>
+      <stop offset="1" stop-color="#4FB9A3"/>
+    </radialGradient>
+    <linearGradient id="pip-leaf" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#B6F07A"/>
+      <stop offset="1" stop-color="#5BAE3C"/>
+    </linearGradient>
+  </defs>
+  <ellipse data-part="shadow" cx="60" cy="134" rx="30" ry="4.5" fill="#1B2A35" opacity="0.18"/>
+  <g data-part="body" data-origin="50% 100%">
+    <g data-part="feet">
+      <ellipse cx="45" cy="127" rx="11" ry="6.5" fill="#3D9C88" stroke="#264653" stroke-width="3"/>
+      <ellipse cx="75" cy="127" rx="11" ry="6.5" fill="#3D9C88" stroke="#264653" stroke-width="3"/>
+    </g>
+    <path data-part="torso" d="M60 26 C 90 26 103 52 103 82 C 103 112 86 127 60 127 C 34 127 17 112 17 82 C 17 52 30 26 60 26 Z" fill="url(#pip-skin)" stroke="#264653" stroke-width="3"/>
+    <path d="M36 48 C 41 38 50 33 58 32" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" opacity="0.55"/>
+    <g data-part="sprout" data-origin="50% 100%">
+      <path d="M60 27 C 60 20 61 14 63 9" fill="none" stroke="#3E8E3A" stroke-width="3" stroke-linecap="round"/>
+      <path d="M63 10 C 70 1 82 2 86 7 C 79 14 69 15 63 10 Z" fill="url(#pip-leaf)" stroke="#2F6B2C" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M62 13 C 55 6 45 7 42 12 C 48 18 57 18 62 13 Z" fill="url(#pip-leaf)" stroke="#2F6B2C" stroke-width="2.5" stroke-linejoin="round"/>
+    </g>
+    <g data-part="arm-left" data-origin="90% 20%">
+      <path d="M27 80 C 14 81 9 93 14 101 C 18 107 27 103 29 95 Z" fill="#6CD0BA" stroke="#264653" stroke-width="3" stroke-linejoin="round"/>
+    </g>
+    <g data-part="arm-right" data-origin="10% 20%">
+      <path d="M93 80 C 106 81 111 93 106 101 C 102 107 93 103 91 95 Z" fill="#6CD0BA" stroke="#264653" stroke-width="3" stroke-linejoin="round"/>
+    </g>
+    <g data-part="face">
+      <g data-part="cheeks">
+        <ellipse cx="33" cy="90" rx="8" ry="5" fill="#FF8FA3" opacity="0.55"/>
+        <ellipse cx="87" cy="90" rx="8" ry="5" fill="#FF8FA3" opacity="0.55"/>
+      </g>
+      <g data-part="eye-left" data-origin="50% 50%">
+        <ellipse cx="44" cy="72" rx="9.5" ry="11.5" fill="#FFFFFF" stroke="#264653" stroke-width="2.5"/>
+        <g data-part="pupil-left">
+          <circle cx="44.5" cy="74" r="5.8" fill="#264653"/>
+          <circle cx="46.8" cy="71" r="2.1" fill="#FFFFFF"/>
+        </g>
+      </g>
+      <g data-part="eye-right" data-origin="50% 50%">
+        <ellipse cx="76" cy="72" rx="9.5" ry="11.5" fill="#FFFFFF" stroke="#264653" stroke-width="2.5"/>
+        <g data-part="pupil-right">
+          <circle cx="75.5" cy="74" r="5.8" fill="#264653"/>
+          <circle cx="77.8" cy="71" r="2.1" fill="#FFFFFF"/>
+        </g>
+      </g>
+      <path data-part="mouth" d="M52 92 Q60 100 68 92" fill="none" stroke="#264653" stroke-width="3" stroke-linecap="round"/>
+      <path data-part="mouth-open" d="M52 91 Q60 91 68 91 Q67 103 60 103 Q53 103 52 91 Z" fill="#264653" stroke="#264653" stroke-width="2" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>

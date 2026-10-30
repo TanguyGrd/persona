@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Persona — personnages et réglages</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <header class="top">
+    <h1>Persona</h1>
+    <nav>
+      <a href="#characters">Personnages</a>
+      <a href="#create">Créer</a>
+      <a href="#import">Importer</a>
+      <a href="#settings">Réglages</a>
+      <a href="#about">À propos</a>
+    </nav>
+  </header>
+  <main>
+    <section id="characters"><h2>Personnages</h2><div id="character-list" class="cards"></div></section>
+    <section id="editor-section" hidden><h2>Modifier le personnage</h2><div id="editor"></div></section>
+    <section id="create"><h2>Créer un personnage</h2><div id="create-form"></div></section>
+    <section id="import"><h2>Importer un avatar ou un pack</h2><div id="import-form"></div></section>
+    <section id="settings"><h2>Réglages</h2><div id="settings-form"></div></section>
+    <section id="about"><h2>À propos</h2><div id="about-text"></div></section>
+  </main>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+  <script src="options.js" type="module"></script>
+</body>
+</html>
