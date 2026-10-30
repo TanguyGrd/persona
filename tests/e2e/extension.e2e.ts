@@ -193,9 +193,10 @@ describe('Chrome extension', () => {
     await popup.goto(`chrome-extension://${s.extensionId}/popup.html`);
     await popup.locator('#enabled').waitFor();
     expect(await popup.locator('.who strong').textContent()).toBe('Pip');
+    await popup.setViewportSize({ width: 320, height: 400 });
+    await popup.screenshot({ path: `${SHOTS}/6-popup.png`, fullPage: true });
     await popup.locator('#enabled').click();
     await expect.poll(() => companion(page).count()).toBe(0);
-    await popup.screenshot({ path: `${SHOTS}/6-popup.png` });
     await popup.locator('#enabled').click();
     await expect.poll(() => companion(page).count()).toBe(1);
     await popup.close();

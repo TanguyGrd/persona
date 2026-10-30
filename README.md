@@ -4,10 +4,17 @@ Un petit compagnon virtuel, vivant et personnalisable, qui apparaît sur vos pag
 sa vie en bas de la fenêtre. **Gratuit, sans compte, sans abonnement, sans clé API** : les animations et les
 répliques tournent entièrement sur votre appareil.
 
-<p>
-  <img src="docs/screenshot-greeting.png" alt="Pip salue l’utilisateur dans une bulle, en bas à droite d’une page web" width="380">
-  <img src="docs/screenshot-dragging.png" alt="Pip traîné à la souris au milieu de la page, bras qui gigotent" width="300">
-</p>
+![Démonstration : entrée en scène, salutation, survol, clic, glisser-déposer, tête qui tourne, masquer puis faire revenir](docs/demo.gif)
+
+<sub>Démonstration enregistrée automatiquement dans Chromium avec l'extension réelle (`npm run demo`). Le point rose représente la souris.</sub>
+
+| Salutation | Glisser-déposer | Masqué |
+|---|---|---|
+| ![Pip salue dans une bulle en bas à droite](docs/screenshots/2-salutation.png) | ![Pip traîné au milieu de la page](docs/screenshots/3-glisser.png) | ![Pastille « ▲ Pip » pour le faire revenir](docs/screenshots/5-masque.png) |
+
+| Menu de l'extension | Avatar importé (SVG) | Création de personnage |
+|---|---|---|
+| ![Popup : activer, masquer, faire parler, choisir le personnage](docs/screenshots/6-popup.png) | ![Avatar SVG importé affiché sur une page](docs/screenshots/8-avatar-importe.png) | ![Profil généré avec confiance et incertitudes à vérifier](docs/screenshots/7-editeur-profil.png) |
 
 MVP actuel : **extension Chrome (Manifest V3)**. Hôte Windows (au-dessus de toutes les fenêtres) prévu
 ensuite, sur la même base.
@@ -54,6 +61,8 @@ Instructions détaillées pour Windows (PowerShell, Edge, zip, tests) : [`docs/W
 | `npm test` | Tests unitaires (Vitest). |
 | `npm run test:e2e` | Tests de bout en bout dans un vrai Chromium avec l'extension chargée (Playwright). Captures dans `test-results/`. |
 | `npm run pack` | Zip prêt à distribuer dans `release/`. |
+| `npm run verify:package` | Recrée le zip, le décompresse, vérifie le manifest et ses fichiers, puis le charge dans Chromium. |
+| `npm run demo` | Réenregistre `docs/demo.gif` (nécessite ffmpeg). |
 | `npm run icons` | Régénère les icônes à partir du SVG de Pip. |
 
 Les tests e2e ont besoin du Chromium de Playwright : `npx playwright install chromium` (une fois).

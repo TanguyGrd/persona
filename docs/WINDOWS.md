@@ -3,23 +3,45 @@
 Deux sujets : utiliser Persona **aujourd'hui** sous Windows (extension Chrome / Edge), et le **futur hôte
 Windows** qui affichera le compagnon par-dessus toutes les applications.
 
-## 1. Installer l'extension sous Windows (aujourd'hui)
+## 1. Tester l'extension sur un PC Windows (aujourd'hui)
 
-### Prérequis
+Tant que la Pull Request n'est pas fusionnée, le code est sur la branche **`claude/nifty-brahmagupta-53buim`**
+(la branche `main` est encore vide). Toutes les commandes ci-dessous en tiennent compte.
 
-- Windows 10 ou 11.
-- Google Chrome (ou Microsoft Edge, Brave, Opera — tout navigateur Chromium récent, version 116+).
-- Pour compiler depuis les sources : [Node.js 20 ou 22 LTS](https://nodejs.org/) et [Git](https://git-scm.com/download/win).
+### Étape 1 — Installer les outils (une seule fois)
 
-### Compiler (PowerShell)
+1. **Google Chrome** (ou Microsoft Edge) à jour.
+2. **Node.js 22 LTS** : <https://nodejs.org/> → « Windows Installer (.msi) », options par défaut.
+3. **Git** : <https://git-scm.com/download/win>, options par défaut (inclut Git Credential Manager, qui ouvrira
+   une fenêtre de connexion GitHub si le dépôt est privé).
+4. Ouvrez **PowerShell** (menu Démarrer → « PowerShell ») et vérifiez :
 
 ```powershell
-git clone https://github.com/TanguyGrd/persona.git
+node -v
+```
+
+```powershell
+git --version
+```
+
+### Étape 2 — Récupérer le code de la branche
+
+```powershell
+cd $HOME\Documents
+```
+
+```powershell
+git clone -b claude/nifty-brahmagupta-53buim https://github.com/TanguyGrd/persona.git
 ```
 
 ```powershell
 cd persona
 ```
+
+Sans Git : sur GitHub, choisissez la branche `claude/nifty-brahmagupta-53buim`, puis **Code → Download ZIP**,
+décompressez-le et ouvrez PowerShell dans le dossier obtenu.
+
+### Étape 3 — Compiler
 
 ```powershell
 npm install
@@ -29,30 +51,56 @@ npm install
 npm run build
 ```
 
-Le dossier prêt à charger est `persona\dist\extension`.
+Le dossier à charger dans Chrome est `Documents\persona\dist\extension` (il contient `manifest.json`).
 
-> Si PowerShell refuse `npm` (« l'exécution de scripts est désactivée »), lancez une fois :
-> `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, ou utilisez l'Invite de commandes (`cmd`).
+> Si PowerShell affiche « l'exécution de scripts est désactivée sur ce système », lancez une fois
+> `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` puis relancez la commande, ou utilisez l'Invite de
+> commandes (`cmd`) à la place de PowerShell.
 
-### Charger dans Chrome
+### Étape 4 — Charger l'extension dans Chrome
 
-1. Ouvrez `chrome://extensions`.
-2. Activez **Mode développeur** (en haut à droite).
-3. Cliquez **Charger l'extension non empaquetée** et choisissez le dossier `persona\dist\extension`.
-4. Une page de bienvenue s'ouvre : Pip arrive en bas de la page et vous salue. Il apparaît aussi sur les
-   onglets http/https déjà ouverts.
-5. Épinglez l'icône Persona (pièce de puzzle → punaise) pour accéder rapidement au menu.
+1. Dans la barre d'adresse : `chrome://extensions`
+2. Activez **Mode développeur** (interrupteur en haut à droite).
+3. Cliquez **Charger l'extension non empaquetée**.
+4. Sélectionnez le dossier `Documents\persona\dist\extension` (celui qui contient `manifest.json`), puis
+   **Sélectionner un dossier**.
+5. La carte « Persona — compagnon animé » apparaît et un onglet de bienvenue s'ouvre.
+6. Cliquez sur la pièce de puzzle de la barre d'outils, puis sur la punaise à côté de Persona pour épingler l'icône.
 
-Dans **Edge** : `edge://extensions` → « Mode développeur » (en bas à gauche) → « Charger l'extension décompressée ».
+Dans **Edge** : `edge://extensions` → **Mode développeur** (colonne de gauche) → **Charger l'extension décompressée**.
+
+### Étape 5 — Ce qu'il faut vérifier
+
+| # | Action | Résultat attendu |
+|---|---|---|
+| 1 | Regarder l'onglet de bienvenue, ou ouvrir un site (ex. <https://fr.wikipedia.org>) | Pip sort de derrière le bas de la fenêtre (ou saute / apparaît en étincelles), puis salue dans une bulle selon l'heure. |
+| 2 | Attendre 30 secondes sans rien faire de spécial | Il respire, cligne des yeux, suit la souris du regard, se promène, fait coucou, saute, fait parfois une remarque. |
+| 3 | Cliquer une fois sur lui | Il réagit (gigote, saute, tourne ou rougit), parfois avec une phrase. |
+| 4 | Cliquer 4 fois rapidement | Sa tête tourne : « Doucement, doucement ! ». |
+| 5 | Le glisser au milieu de la page et lâcher | Il pendouille en agitant les bras, puis retombe en bas. Rechargez la page : il revient au même endroit. |
+| 6 | Le survoler, cliquer sur « – » | Il dit au revoir et disparaît ; une pastille « ▲ Pip » reste en bas à droite, aussi dans les autres onglets. Cliquez-la pour le faire revenir. |
+| 7 | `Alt + Maj + P` | Masque / fait revenir le compagnon de l'onglet actif. |
+| 8 | Icône Persona → décocher « Actif sur <nom du site> » | Il disparaît de ce site uniquement. Recochez pour le retrouver. |
+| 9 | Icône Persona → décocher « Compagnon activé » | Il disparaît de tous les onglets. |
+| 10 | Icône Persona → « Personnages et réglages » → Réglages → votre prénom | Les salutations suivantes peuvent vous appeler par votre prénom. |
+| 11 | « Créer un personnage » : un nom + une description → « Générer le profil » | Un profil est proposé avec un niveau de confiance et la liste de ce qui est à vérifier ; « Créer et activer » le met sur les pages. |
+| 12 | « Importer » : une image PNG/GIF/SVG à vous | Un nouveau personnage avec cet avatar apparaît sur les pages. |
+
+Tout fonctionne hors ligne, sans compte ni clé API. Les sites internes (`chrome://…`, Chrome Web Store) et
+les PDF ne peuvent pas afficher le compagnon : c'est une limite de Chrome.
 
 ### Mettre à jour après une modification
+
+```powershell
+git pull
+```
 
 ```powershell
 npm run build
 ```
 
-Puis, dans `chrome://extensions`, cliquez sur la flèche circulaire de la carte Persona. Pendant le
-développement, `npm run watch` recompile à chaque sauvegarde.
+Puis, dans `chrome://extensions`, cliquez sur la flèche circulaire de la carte Persona et rechargez vos onglets.
+Pendant le développement, `npm run watch` recompile à chaque sauvegarde.
 
 ### Créer un zip (partage ou Chrome Web Store)
 
@@ -60,9 +108,10 @@ développement, `npm run watch` recompile à chaque sauvegarde.
 npm run pack
 ```
 
-Le fichier est créé dans `release\persona-extension-<version>.zip` (via `Compress-Archive`).
+Le fichier est créé dans `release\persona-extension-<version>.zip` (via `Compress-Archive`). Pour l'installer
+ailleurs : décompressez-le dans un dossier, puis « Charger l'extension non empaquetée » sur ce dossier.
 
-### Tests sous Windows
+### Lancer les tests sous Windows
 
 ```powershell
 npm test
@@ -76,11 +125,16 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-La deuxième commande télécharge le Chromium utilisé par les tests de bout en bout (une seule fois).
+La deuxième commande télécharge une seule fois le Chromium utilisé par les tests de bout en bout.
 
 ### Raccourci clavier
 
-`Alt + Maj + P` masque / affiche le compagnon sur l'onglet actif. Modifiable dans `chrome://extensions/shortcuts`.
+`Alt + Maj + P` masque / affiche le compagnon sur l'onglet actif. Si un autre logiciel utilise déjà ce
+raccourci, changez-le dans `chrome://extensions/shortcuts`.
+
+### Désinstaller
+
+`chrome://extensions` → carte Persona → **Supprimer**. Les réglages et personnages stockés sont effacés avec elle.
 
 ## 2. Futur hôte Windows
 

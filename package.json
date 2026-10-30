@@ -12,7 +12,9 @@
     "test:e2e": "node scripts/build.mjs && vitest run --config vitest.e2e.config.ts",
     "check": "npm run typecheck && npm test && npm run test:e2e",
     "pack": "node scripts/build.mjs && node scripts/pack.mjs",
-    "icons": "node scripts/make-icons.mjs"
+    "icons": "node scripts/make-icons.mjs",
+    "verify:package": "node scripts/pack.mjs && node scripts/verify-package.mjs",
+    "demo": "node scripts/build.mjs && node scripts/record-demo.mjs"
   },
   "devDependencies": {
     "@types/chrome": "0.3.7",
