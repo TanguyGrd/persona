@@ -1,0 +1,28 @@
+{
+  "name": "persona-companion",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Persona — compagnon virtuel animé et personnalisable (extension Chrome MV3, futur hôte Windows).",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run tests/unit",
+    "test:e2e": "node scripts/build.mjs && vitest run --config vitest.e2e.config.ts",
+    "check": "npm run typecheck && npm test && npm run test:e2e",
+    "pack": "node scripts/build.mjs && node scripts/pack.mjs",
+    "icons": "node scripts/make-icons.mjs",
+    "verify:package": "node scripts/pack.mjs && node scripts/verify-package.mjs",
+    "demo": "node scripts/build.mjs && node scripts/record-demo.mjs"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.3.7",
+    "@types/node": "^22.10.0",
+    "esbuild": "0.28.2",
+    "happy-dom": "21.0.4",
+    "playwright": "1.63.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}

@@ -1,0 +1,4 @@
+body { font: 16px/1.6 Georgia, serif; margin: 0; padding: 40px; background: #fdfaf4; color: #222; }
+* { box-sizing: content-box !important; }
+div, span, button { font-size: 30px; }
+article { max-width: 640px; }
