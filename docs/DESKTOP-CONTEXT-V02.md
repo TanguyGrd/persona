@@ -84,7 +84,7 @@ nécessaire avant de qualifier ces mouvements d’aussi fluides que la référen
 - 26 tests bureau : réussis (Chromium + pont simulé, contrôleur natif simulé, stockage).
 - `cargo check --target x86_64-pc-windows-msvc --tests --locked --features tauri/custom-protocol` :
   réussi. Le code Win32/DWM et les tests supplémentaires sont bien vérifiés pour Windows.
-- Trois nouveaux tests Rust couvrent interpolation, géométrie de rebord/DPI et interruption.
+- Quatre nouveaux tests Rust couvrent interpolation, géométrie de rebord/DPI et interruption, avec distinction clic court/glisser.
   Leur exécution réelle nécessite le runner Windows ; ils ne constituent pas des tests UI natifs.
 
 Les captures ajoutées à cette livraison proviennent de Chromium, et ne montrent pas une vraie

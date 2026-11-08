@@ -136,7 +136,7 @@ fn set_pointer_capture(
             .motion
             .lock()
             .map_err(|e| e.to_string())?
-            .interrupt(true);
+            .interrupt(false);
         window
             .set_ignore_cursor_events(false)
             .map_err(|e| e.to_string())?;

@@ -517,4 +517,21 @@ mod tests {
         });
         assert!(state.plan.is_none());
     }
+    #[test]
+    fn a_short_click_keeps_the_perch_but_a_real_drag_detaches_it() {
+        let mut state = State::default();
+        state.surface = Some(123);
+        state.surface_settled = true;
+        state.plan = Some(Plan::new(
+            SavedPosition { x: 0, y: 0 },
+            SavedPosition { x: 20, y: 0 },
+            500.0,
+        ));
+        state.interrupt(false);
+        assert!(state.plan.is_none());
+        assert_eq!(state.surface, Some(123));
+        state.interrupt(true);
+        assert!(state.surface.is_none());
+        assert!(state.manual_perch_after > Instant::now());
+    }
 }
