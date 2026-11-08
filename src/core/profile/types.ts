@@ -65,6 +65,9 @@ export interface ProfileMeta {
   /** Credit / licence notes for the character itself. */
   credits?: string;
   creation?: CharacterCreation;
+  /** User-supplied references. Not fetched or verified by instant creation. */
+  sourceUrls?: string[];
+  dialoguePreset?: 'terry-mcginnis-fr@1';
 }
 
 export interface CharacterProfile {

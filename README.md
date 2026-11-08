@@ -131,3 +131,8 @@ Le parcours Windows accepte 1 à 10 images de référence et conserve un mode in
 la génération IA et le rigging restent à connecter. Voir [la phase 1 de l’atelier](docs/PHASE1-WORKSHOP.md)
 pour l’intégration, les limites et les vérifications Windows, et [le menu initial](docs/DESKTOP-CREATION.md)
 pour son historique.
+
+Les changements de la version 0.2 (marche native sur le bureau, prototype de rebords, jauges,
+liens d’identité non vérifiés et profil de répliques confirmé) sont détaillés dans
+[DESKTOP-CONTEXT-V02.md](docs/DESKTOP-CONTEXT-V02.md). La reconnaissance visuelle IA, les pouvoirs
+et Discord ne sont pas encore connectés.

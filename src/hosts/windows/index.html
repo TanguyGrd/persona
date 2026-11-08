@@ -21,10 +21,15 @@
           </div>
           <div id="reference-list" aria-label="Images de référence"></div>
           <div class="creation-bottom">
-            <section class="identity-fields"><span class="step">02 — SON IDENTITÉ</span>
-              <label>Son nom <span class="optional">facultatif</span><input id="avatar-name" maxlength="40" placeholder="Mon compagnon"></label>
-              <label>Son univers <span class="optional">facultatif</span><input id="avatar-universe" maxlength="120" placeholder="Votre création, un jeu, une histoire…"></label>
-              <label>Sa personnalité <span class="optional">facultatif</span><textarea id="avatar-description" maxlength="600" placeholder="Calme, curieux, un peu espiègle…"></textarea></label>
+            <section class="identity-fields"><span class="step">02 — IDENTITÉ DU PERSONNAGE</span>
+              <p class="hint">Identification par image à connecter. En mode instantané, votre personnage reste non identifié : aucune histoire ni personnalité n’est déduite de l’image.</p>
+              <details id="identity-details"><summary>Aider à identifier · liens de référence</summary>
+                <label>Liens Wikipédia, site officiel… <textarea id="avatar-sources" maxlength="10240" placeholder="https://fr.wikipedia.org/…&#10;Un lien par ligne, 5 maximum"></textarea></label>
+                <p class="hint">Ces liens sont conservés, pas encore consultés. Une future analyse devra vous proposer une identité à confirmer.</p>
+                <label>Corriger le nom proposé <span class="optional">facultatif</span><input id="avatar-name" maxlength="40" placeholder="Non identifié"></label>
+                <label>Préciser l’univers <span class="optional">facultatif</span><input id="avatar-universe" maxlength="120" placeholder="Jeu, série, création originale…"></label>
+                <label>Description complémentaire <span class="optional">facultatif</span><textarea id="avatar-description" maxlength="600" placeholder="Ce que vous connaissez du personnage"></textarea></label>
+              </details>
             </section>
             <section class="preview-card"><span class="step">03 — PREMIER APERÇU</span><div id="avatar-preview" aria-label="Aperçu du compagnon"></div><p id="profile-preview" class="hint">Choisissez une vue principale : c’est elle qui apparaîtra sur votre bureau.</p></section>
           </div>
@@ -40,13 +45,20 @@
     <form id="settings-form">
       <label>Personnage <select name="activeProfileId"></select></label>
       <label>Votre prénom <input name="userName" maxlength="40" autocomplete="given-name"></label>
-      <label>Taille <select name="scale"><option value="0.75">Petite</option><option value="1">Normale</option><option value="1.25">Grande</option></select></label>
-      <label>Activité <select name="frequency"><option value="calm">Calme</option><option value="normal">Normale</option><option value="lively">Vive</option></select></label>
-      <label>Paroles <select name="chattiness"><option value="all">Toutes</option><option value="greetings">Salutations</option><option value="silent">Silencieux</option></select></label>
+      <label>Taille <output id="scale-value">100 %</output><input name="scale" type="range" min="50" max="200" step="5" value="100"></label>
+      <label>Activité <output id="frequency-value">Normale</output><input name="frequency" type="range" min="0" max="2" step="1" value="1"></label>
+      <label>Paroles <output id="chattiness-value">Toutes</output><input name="chattiness" type="range" min="0" max="2" step="1" value="2"></label>
       <label>Animations <select name="reduceMotion"><option value="auto">Selon Windows</option><option value="on">Réduites</option><option value="off">Complètes</option></select></label>
+      <label>Profil de répliques <select name="dialoguePreset"><option value="keep">Conserver mon profil</option><option value="terry">Terry McGinnis</option></select></label>
+      <p class="hint">Répliques locales. Le profil Terry est un choix manuel ; il n’active ni reconnaissance par image ni pouvoirs.</p>
+      <label><input name="desktopRoaming" type="checkbox"> Se déplacer sur le bureau</label>
+      <label><input name="windowPerching" type="checkbox"> Utiliser les bords des fenêtres</label>
+      <p class="hint">Les bords utilisent uniquement position et taille des fenêtres. Aucun contenu, titre, écran ou son n’est lu.</p>
+      <button id="perch" type="button">Se poser sur la dernière fenêtre</button>
+      <p id="desktop-status" role="status"></p>
       <button type="submit">Enregistrer</button>
     </form>
-    <p class="hint">Glissez Pip pour le déplacer. L’icône Persona près de l’horloge permet de le faire revenir.</p>
+    <p class="hint">Glissez le personnage pour le déplacer. L’icône Persona près de l’horloge permet de le faire revenir.</p>
     <button id="open-launcher" type="button">Mes compagnons · Créer un avatar</button>
     <footer><button id="hide" type="button">Masquer</button><button id="quit" type="button">Quitter Persona</button></footer>
   </section>

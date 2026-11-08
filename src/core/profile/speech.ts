@@ -72,7 +72,8 @@ export function candidateTiers(kind: SpeechKind, profile: CharacterProfile, now:
     return { custom, tone: g.tone, weekend: [...w.tone, ...w.default], default: g.default };
   }
   const t = toneTier(book[kind], profile.tone);
-  return { custom: profile.phrases[kind] ?? [], tone: t.tone, weekend: [], default: t.default };
+  const custom = profile.phrases[kind] ?? [];
+  return { custom, tone: t.tone, weekend: [], default: t.default };
 }
 
 export function speechVars(ctx: SpeechContext): SpeechVars {
@@ -101,6 +102,11 @@ export function composeLine(kind: SpeechKind, ctx: SpeechContext): Line | null {
     tiers[tier]
       .map((tpl) => ({ tpl, key: lineKey(kind, tpl), text: fillTemplate(tpl, vars) }))
       .filter((c): c is { tpl: string; key: string; text: string } => c.text !== null && (allowRecent || !recent.has(c.key)));
+
+  // A known persona must not randomly fall back to an unrelated mascot line.
+  const freshCustom = usable('custom', false);
+  const custom = freshCustom.length ? freshCustom : usable('custom', true);
+  if (custom.length) { const selected = pick(custom, ctx.rng); return { text: selected.text, key: selected.key }; }
 
   for (const allowRecent of [false, true]) {
     const weights: Partial<Record<Tier, number>> = {};

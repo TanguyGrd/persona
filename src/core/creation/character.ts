@@ -1,3 +1,4 @@
+import { normalizeSourceUrls } from '../profile/persona';
 import { fileKind, importAvatarFiles, MAX_FILE_BYTES, exportPack, normalizeAvatar, type ImportDeps, type ImportFile, type PersonaPack } from '../avatar/importer';
 import type { AvatarAsset } from '../avatar/types';
 import { LocalProfileGenerator } from '../profile/generator';
@@ -54,11 +55,13 @@ export interface CreateCompanionRequest {
   name?: string;
   universe?: string;
   description?: string;
+  sourceUrls?: string[];
 }
 
 /** Creates a local instant companion. Selection of an active profile is a separate host action. */
 export async function createCompanion(repo: Repository, request: CreateCompanionRequest): Promise<CharacterProfile> {
   const { references, primaryIndex } = request;
+  const sourceUrls = normalizeSourceUrls(request.sourceUrls);
   if (!references.length || references.length > MAX_REFERENCES) throw new Error('Choisissez entre 1 et 10 images.');
   if (!Number.isInteger(primaryIndex) || primaryIndex < 0 || primaryIndex >= references.length) throw new Error('Choisissez une vue principale valide.');
   // Never overwrite assets from an earlier creation when reusing a prepared draft.
@@ -76,6 +79,7 @@ export async function createCompanion(repo: Repository, request: CreateCompanion
   });
   const profile = generated.profile;
   profile.avatarId = avatars[primaryIndex]!.id;
+  if (sourceUrls.length) profile.meta.sourceUrls = sourceUrls;
   if (request.universe?.trim()) profile.universe = request.universe.trim().slice(0, 120);
   profile.meta.creation = { mode: 'instant', source: 'user', preparedAt: Date.now(), referenceAvatarIds: avatars.map((avatar) => avatar.id) };
   profile.meta.uncertainties = [...(profile.meta.uncertainties ?? []), 'Images de référence conservées localement ; aucune analyse visuelle, fusion de vues, articulation ou recherche IA effectuée.'];

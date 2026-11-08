@@ -3,8 +3,8 @@ import type { KeyValueStore } from './settings/store';
 /**
  * Host contract. A host puts the companion on screen and wires it to its platform:
  *  - Chrome Host  (src/hosts/chrome): content script inside web pages, chrome.storage.
- *  - Windows Host (src/hosts/windows, planned): transparent always-on-top window above
- *    other applications, JSON file storage.
+ *  - Windows Host (src/hosts/windows): transparent always-on-top window above
+ *    other applications, IndexedDB storage and separate native window position.
  * The web stage (src/stage) only needs the services below, so both hosts share it.
  */
 export interface HostServices {

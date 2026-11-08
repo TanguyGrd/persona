@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod geometry;
+mod motion;
 
 use geometry::{clamp_position, HitRegion, SavedPosition};
 use std::{
@@ -32,6 +33,7 @@ struct DesktopState {
     running: Arc<AtomicBool>,
     position_file: PathBuf,
     menu_position: Arc<Mutex<Option<SavedPosition>>>,
+    motion: Arc<Mutex<motion::State>>,
 }
 
 fn report(result: tauri::Result<()>) {
@@ -59,6 +61,11 @@ fn set_launcher_open(
     window: WebviewWindow,
     state: State<'_, DesktopState>,
 ) -> Result<(), String> {
+    state
+        .motion
+        .lock()
+        .map_err(|e| e.to_string())?
+        .interrupt(false);
     let previous = *state.menu_position.lock().map_err(|e| e.to_string())?;
     if open && previous.is_none() {
         save_position(&state, true);
@@ -125,6 +132,11 @@ fn set_pointer_capture(
         .map_err(|e| e.to_string())?
         .captured = captured;
     if captured {
+        state
+            .motion
+            .lock()
+            .map_err(|e| e.to_string())?
+            .interrupt(true);
         window
             .set_ignore_cursor_events(false)
             .map_err(|e| e.to_string())?;
@@ -134,6 +146,11 @@ fn set_pointer_capture(
 
 #[tauri::command]
 fn start_dragging(window: WebviewWindow, state: State<'_, DesktopState>) -> Result<(), String> {
+    state
+        .motion
+        .lock()
+        .map_err(|e| e.to_string())?
+        .interrupt(true);
     #[cfg(windows)]
     {
         use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
@@ -180,6 +197,11 @@ fn start_dragging(window: WebviewWindow, state: State<'_, DesktopState>) -> Resu
 #[tauri::command]
 fn hide_companion(window: WebviewWindow, state: State<'_, DesktopState>) -> Result<(), String> {
     state
+        .motion
+        .lock()
+        .map_err(|e| e.to_string())?
+        .interrupt(false);
+    state
         .interaction
         .lock()
         .map_err(|e| e.to_string())?
@@ -190,6 +212,76 @@ fn hide_companion(window: WebviewWindow, state: State<'_, DesktopState>) -> Resu
 #[tauri::command]
 fn show_settings(app: AppHandle) -> Result<(), String> {
     show_companion(&app, true).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn configure_motion(config: motion::Config, state: State<'_, DesktopState>) -> Result<(), String> {
+    if !config.valid() {
+        return Err("Invalid desktop geometry".into());
+    }
+    state
+        .motion
+        .lock()
+        .map_err(|e| e.to_string())?
+        .configure(config);
+    Ok(())
+}
+
+#[tauri::command]
+fn desktop_world(window: WebviewWindow, state: State<'_, DesktopState>) -> Option<motion::World> {
+    let captured = state.interaction.lock().ok()?.captured;
+    let menu_open = state.menu_position.lock().ok()?.is_some();
+    if captured || menu_open || !window.is_visible().unwrap_or(false) {
+        return None;
+    }
+    let snapshot = state.motion.lock().ok()?.clone();
+    motion::world(&window, &snapshot)
+}
+
+fn commit_motion(
+    state: &DesktopState,
+    snapshot: motion::State,
+    revision: u64,
+) -> Result<bool, String> {
+    let mut current = state.motion.lock().map_err(|e| e.to_string())?;
+    if current.revision != revision {
+        return Ok(false);
+    }
+    *current = snapshot;
+    Ok(true)
+}
+
+#[tauri::command]
+fn walk_desktop(
+    target_x: f64,
+    duration_ms: f64,
+    window: WebviewWindow,
+    state: State<'_, DesktopState>,
+) -> Result<(), String> {
+    if state
+        .interaction
+        .lock()
+        .map_err(|e| e.to_string())?
+        .captured
+    {
+        return Ok(());
+    }
+    let mut snapshot = state.motion.lock().map_err(|e| e.to_string())?.clone();
+    let revision = snapshot.revision;
+    motion::walk(&window, &mut snapshot, target_x, duration_ms)?;
+    commit_motion(&state, snapshot, revision)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn perch_companion(window: WebviewWindow, state: State<'_, DesktopState>) -> Result<(), String> {
+    let mut snapshot = state.motion.lock().map_err(|e| e.to_string())?.clone();
+    let revision = snapshot.revision;
+    motion::perch(&window, &mut snapshot)?;
+    if !commit_motion(&state, snapshot, revision)? {
+        return Err("Déplacement interrompu. Réessayez.".into());
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -323,6 +415,38 @@ fn start_native_loop(window: WebviewWindow, state: DesktopState) {
     });
 }
 
+fn start_motion_loop(window: WebviewWindow, state: DesktopState) {
+    std::thread::spawn(move || {
+        while state.running.load(Ordering::Relaxed) {
+            let blocked = {
+                let interaction = state.interaction.lock().unwrap();
+                interaction.captured || !interaction.ready
+            };
+            let menu_open = state.menu_position.lock().unwrap().is_some();
+            let blocked = blocked || menu_open || !window.is_visible().unwrap_or(false);
+            let mut snapshot = state.motion.lock().unwrap().clone();
+            let revision = snapshot.revision;
+            let next = motion::tick(&window, &mut snapshot, blocked);
+            let accepted = {
+                let mut current = state.motion.lock().unwrap();
+                if current.revision == revision {
+                    *current = snapshot;
+                    true
+                } else {
+                    false
+                }
+            };
+            // Never hold state across a call dispatched to the UI thread.
+            if accepted {
+                if let Some(pos) = next {
+                    let _ = window.set_position(PhysicalPosition::new(pos.x, pos.y));
+                }
+            }
+            std::thread::sleep(Duration::from_millis(16));
+        }
+    });
+}
+
 fn main() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
@@ -336,7 +460,11 @@ fn main() {
             start_dragging,
             hide_companion,
             show_settings,
-            quit_app
+            quit_app,
+            configure_motion,
+            desktop_world,
+            walk_desktop,
+            perch_companion
         ])
         .setup(|app| {
             let window = app
@@ -347,6 +475,7 @@ fn main() {
                 position: Arc::new(Mutex::new(None)),
                 running: Arc::new(AtomicBool::new(true)),
                 menu_position: Arc::new(Mutex::new(None)),
+                motion: Arc::new(Mutex::new(motion::State::default())),
                 position_file: app.path().app_config_dir()?.join("window-position.json"),
             };
             app.manage(state.clone());
@@ -390,6 +519,11 @@ fn main() {
                     }
                     "settings" => report(show_companion(app, true)),
                     "reset" => {
+                        app.state::<DesktopState>()
+                            .motion
+                            .lock()
+                            .unwrap()
+                            .interrupt(true);
                         if let Some(window) = app.get_webview_window("main") {
                             report(restore_position(
                                 &window,
@@ -437,6 +571,7 @@ fn main() {
                 }
                 _ => {}
             });
+            start_motion_loop(window.clone(), state.clone());
             start_native_loop(window, state);
             Ok(())
         })

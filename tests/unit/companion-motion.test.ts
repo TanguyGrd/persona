@@ -91,3 +91,22 @@ describe('stage trajectory completion between animation frames', () => {
     expect(actor.style.transform).toBe(`translate3d(${Math.round(companion.x)}px, 0px, 0)`);
   });
 });
+
+describe('host-executed desktop walks', () => {
+  it('uses the desktop world for brain decisions without translating the actor off its compact web scene', () => {
+    const walk = vi.fn((_directive: { targetX?: number }) => true);
+    companion = new Companion({
+      profile: BUILTIN_PROFILES[0]!, avatar: BUILTIN_AVATARS[0]!,
+      settings: { ...DEFAULT_SETTINGS, chattiness: 'silent', reduceMotion: 'off' },
+      memory: { lastGreetingAt: 0, recent: [] }, now: () => Date.now(), rng: () => .5, entrance: 'pop',
+      callbacks: { saveMemory() {}, savePosition() {}, openSettings() {}, placeName: () => '',
+        walkWorld: () => ({ x: 2000, minX: 0, maxX: 3000 }), walkOutside: walk },
+    }).mount();
+    const x = companion.x;
+    vi.advanceTimersByTime(15000);
+    expect(walk).toHaveBeenCalled();
+    const directive = walk.mock.calls[0]?.[0] as unknown as { targetX: number };
+    expect(directive.targetX).toBeGreaterThan(1200);
+    expect(companion.x).toBe(x);
+  });
+});

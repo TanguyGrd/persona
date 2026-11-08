@@ -1,0 +1,51 @@
+import { beforeEach, afterEach, expect, it, vi } from 'vitest';
+import { createDesktopMotion, isDesktopWorld, type MotionConfig } from '../../src/hosts/windows/motion';
+const config:MotionConfig={enabled:true,perching:false,paused:false,anchorX:160,actorWidth:116,actorHeight:116};
+let motion:ReturnType<typeof createDesktopMotion>;
+beforeEach(()=>vi.useFakeTimers());
+afterEach(()=>{motion?.destroy();vi.useRealTimers();});
+it('delegates each native walk once instead of sending every animation frame over IPC',async()=>{
+  const invoke=vi.fn(async(command:string)=>command==='desktop_world'?{x:400,minX:0,maxX:1560}:undefined);
+  motion=createDesktopMotion({invoke,listen:async()=>()=>{}},()=>{});
+  await motion.configure(config);
+  await vi.advanceTimersByTimeAsync(250);
+  expect(motion.world()).toEqual({x:400,minX:0,maxX:1560});
+  expect(motion.walk({activity:'walk',durationMs:2000,mood:'happy',targetX:900})).toBe(true);
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(invoke.mock.calls.filter(([command])=>command==='walk_desktop')).toHaveLength(1);
+  await motion.configure({...config,paused:true});
+  expect(motion.world()).toEqual({x:0,minX:0,maxX:0});
+  expect(motion.walk({activity:'walk',durationMs:2000,mood:'happy',targetX:900})).toBe(false);
+});
+it('waits for changed configuration to reach native code before a dependent action',async()=>{
+  const completions: (()=>void)[] = [];
+  const invoke=vi.fn((command:string)=>command==='configure_motion'?new Promise<void>(resolve=>{completions.push(resolve);}):Promise.resolve(undefined));
+  motion=createDesktopMotion({invoke,listen:async()=>()=>{}},()=>{});
+  const first=motion.configure(config); await vi.waitFor(() => expect(completions).toHaveLength(1));
+  let applied=false;
+  const next=motion.configure({...config,paused:true}).then(()=>{applied=true;});
+  expect(applied).toBe(false); completions[0]!(); await first;
+  await vi.waitFor(() => expect(invoke).toHaveBeenCalledTimes(2)); expect(applied).toBe(false);
+  completions[1]!(); await next; expect(applied).toBe(true);
+});
+it('does not use absent or malformed native geometry and cancels polling on disposal',async()=>{
+  expect(isDesktopWorld({x:NaN,minX:0,maxX:100})).toBe(false);
+  expect(isDesktopWorld({x:1,minX:100,maxX:0})).toBe(false);
+  const invoke=vi.fn(async()=>undefined);
+  motion=createDesktopMotion({invoke,listen:async()=>()=>{}},()=>{});
+  await motion.configure(config); await vi.advanceTimersByTimeAsync(250);
+  expect(motion.world()).toEqual({x:0,minX:0,maxX:0}); motion.destroy();
+  const count=invoke.mock.calls.length; await vi.advanceTimersByTimeAsync(1000); expect(invoke.mock.calls).toHaveLength(count);
+});
+it('only attempts an automatic perch after opt-in, availability and a cooldown',async()=>{
+  const invoke=vi.fn(async(command:string)=>command==='desktop_world'?{x:400,minX:0,maxX:1560,canPerch:true,onSurface:false}:undefined);
+  motion=createDesktopMotion({invoke,listen:async()=>()=>{}},()=>{});
+  await motion.configure(config); await vi.advanceTimersByTimeAsync(6500);
+  expect(invoke.mock.calls.filter(([name])=>name==='perch_companion')).toHaveLength(0);
+  await motion.configure({...config,perching:true}); await vi.advanceTimersByTimeAsync(250);
+  expect(invoke.mock.calls.filter(([name])=>name==='perch_companion')).toHaveLength(1);
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(invoke.mock.calls.filter(([name])=>name==='perch_companion')).toHaveLength(1);
+  await motion.configure({...config,perching:true,paused:true}); await vi.advanceTimersByTimeAsync(60000);
+  expect(invoke.mock.calls.filter(([name])=>name==='perch_companion')).toHaveLength(1);
+});

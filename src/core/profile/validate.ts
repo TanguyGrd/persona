@@ -1,3 +1,4 @@
+import { normalizeSourceUrls } from './persona';
 import { clamp } from '../rng';
 import {
   ENTRANCES, LANGUAGES, SPEECH_KINDS, TIME_SLOTS, TONES,
@@ -106,6 +107,10 @@ export function normalizeProfile(input: unknown, now = Date.now()): ValidationRe
       preparedAt: typeof m.creation.preparedAt === 'number' && Number.isFinite(m.creation.preparedAt) ? m.creation.preparedAt : now,
     };
   }
+
+  try { const urls = normalizeSourceUrls(m.sourceUrls); if (urls.length) meta.sourceUrls = urls; }
+  catch { warnings.push('Liens de référence invalides ignorés.'); }
+  if (m.dialoguePreset === 'terry-mcginnis-fr@1') meta.dialoguePreset = m.dialoguePreset;
 
   const value: CharacterProfile = {
     schemaVersion: 1,

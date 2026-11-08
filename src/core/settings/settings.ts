@@ -16,6 +16,8 @@ export interface Settings {
   scale: number;
   /** Fall back to the bottom of the window after being dropped. */
   gravity: boolean;
+  desktopRoaming: boolean;
+  windowPerching: boolean;
   frequency: Frequency;
   chattiness: Chattiness;
   /** Minutes before a full greeting is used again (shorter visits get a "welcome back"). */
@@ -39,6 +41,8 @@ export const DEFAULT_SETTINGS: Settings = {
   uiLanguage: 'auto',
   scale: 1,
   gravity: true,
+  desktopRoaming: true,
+  windowPerching: false,
   frequency: 'normal',
   chattiness: 'all',
   greetCooldownMin: 30,
@@ -78,6 +82,8 @@ export function normalizeSettings(input: unknown): Settings {
     uiLanguage: oneOf(s.uiLanguage, ['auto', 'fr', 'en'] as const, d.uiLanguage),
     scale: typeof s.scale === 'number' && Number.isFinite(s.scale) ? clamp(s.scale, 0.5, 2) : d.scale,
     gravity: typeof s.gravity === 'boolean' ? s.gravity : d.gravity,
+    desktopRoaming: typeof s.desktopRoaming === 'boolean' ? s.desktopRoaming : d.desktopRoaming,
+    windowPerching: typeof s.windowPerching === 'boolean' ? s.windowPerching : d.windowPerching,
     frequency: oneOf(s.frequency, ['calm', 'normal', 'lively'] as const, d.frequency),
     chattiness: oneOf(s.chattiness, ['all', 'greetings', 'silent'] as const, d.chattiness),
     greetCooldownMin: typeof s.greetCooldownMin === 'number' ? clamp(Math.round(s.greetCooldownMin), 1, 24 * 60) : d.greetCooldownMin,

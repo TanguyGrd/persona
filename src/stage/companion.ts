@@ -16,6 +16,10 @@ import { STAGE_CSS } from './styles';
  */
 
 export interface CompanionCallbacks {
+  /** Optional host geometry for autonomous walks; never changes page-local layout. */
+  walkWorld?(): Pick<World, 'x' | 'minX' | 'maxX'> | undefined;
+  /** Return true when the host will execute the walk outside this scene. */
+  walkOutside?(directive: Directive): boolean;
   /** Persist speech memory (greeting cooldown, recent lines). */
   saveMemory(memory: SpeechMemory): void;
   /** Persist the position after the user moved the character or it walked. */
@@ -356,7 +360,8 @@ export class Companion {
       this.showToolbar(4000);
       return;
     }
-    const d = this.brain.tick(now, this.world());
+    const outside = this.cb.walkWorld?.();
+    const d = this.brain.tick(now, outside ? { ...this.world(), ...outside } : this.world());
     if (d) this.apply(d);
     else this.scheduleStep();
   }
@@ -425,6 +430,11 @@ export class Companion {
         return [];
       }
       case 'walk': {
+        const outside = this.cb.walkWorld?.();
+        if (outside && this.cb.walkOutside?.(d)) {
+          this.setFacing((d.targetX ?? outside.x) < outside.x ? -1 : 1);
+          return [];
+        }
         const tx = d.targetX ?? x;
         this.setFacing(tx < x ? -1 : 1);
         return [seg(0, d.durationMs, x, tx, y, y, 0, 'inout')];

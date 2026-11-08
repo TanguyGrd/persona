@@ -59,3 +59,20 @@ button:hover { background: #def2e4; }
 #avatar-status[data-error="1"] { color:#ffbab0; }
 #launcher :focus-visible { outline-color:#e6f6ba; }
 @media(max-width:680px) { .menu-grid,.creation-bottom { grid-template-columns:1fr; } #launcher { padding:16px; } .local-badge { display:none; } .create-actions { align-items:stretch; flex-direction:column; } }
+
+input[type="range"] { accent-color:#a5c49c; cursor:pointer; }
+#settings label:has(input[type="range"]) { display:grid; grid-template-columns:1fr auto; }
+#settings input[type="range"] { grid-column:1 / -1; width:100%; }
+#settings input[type="checkbox"] { width:auto; }
+#settings output { font-size:12px; }
+#identity-details summary { cursor:pointer; padding:10px 0; }
+#identity-details label { margin:10px 0; }
+
+#settings { background:#1b352c; color:#eef5e9; border-color:#7d9b7e; }
+#settings h1 { font-size:24px; }
+#settings button,#settings select,#settings input:not([type="range"]):not([type="checkbox"]) { color:#193b2e; background:#edf6e5; }
+#settings .hint { color:#c1d2c2; }
+#desktop-status { font-size:12px; color:#e1ecbb; }
+
+#settings label:has(input[type="checkbox"]) { justify-content:flex-start; }
+#settings label:has(select[name="dialoguePreset"]) select { width:200px; }

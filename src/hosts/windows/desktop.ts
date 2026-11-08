@@ -1,3 +1,5 @@
+import { applyTerryPersona } from '../../core/profile/persona';
+import { createDesktopMotion } from './motion';
 import { Repository } from '../../core/settings/store';
 import type { Settings } from '../../core/settings/settings';
 import { Companion } from '../../stage/companion';
@@ -35,6 +37,7 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
   };
   const call = (command: string, args?: Record<string, unknown>) => bridge.invoke(command, args);
   const run = (operation: Promise<unknown>) => { void operation.catch(report); };
+  const motion = createDesktopMotion(bridge, report);
   const store = new IndexedDesktopStore(localStorage);
   const repo = new Repository(store);
   let companion: Companion | undefined;
@@ -52,14 +55,24 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
     const profiles = await repo.listProfiles();
     const select = field('activeProfileId') as HTMLSelectElement;
     select.replaceChildren(...profiles.map((profile) => new Option(profile.name, profile.id)));
-    for (const name of ['activeProfileId', 'userName', 'scale', 'frequency', 'chattiness', 'reduceMotion'] as const) {
+    for (const name of ['activeProfileId', 'userName', 'reduceMotion'] as const) {
       field(name).value = String(settings[name]);
     }
+    field('scale').value = String(settings.scale * 100);
+    field('frequency').value = String(['calm','normal','lively'].indexOf(settings.frequency));
+    field('chattiness').value = String(['silent','greetings','all'].indexOf(settings.chattiness));
+    (field('desktopRoaming') as HTMLInputElement).checked = settings.desktopRoaming;
+    (field('windowPerching') as HTMLInputElement).checked = settings.windowPerching;
+    field('dialoguePreset').value = 'keep';
+    updateGaugeLabels();
+    launcher.panel.hidden = true;
+    await call('set_launcher_open', { open: true });
     panel.hidden = false;
     field('userName').focus();
   };
 
   const mount = async () => {
+    motion.reset();
     for (const cleanup of dragCleanups.splice(0)) cleanup();
     companion?.destroy();
     settings = await repo.getSettings();
@@ -67,6 +80,8 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
     companion = new Companion({
       profile, avatar, settings, memory: await repo.getMemory(profile.id), owner: 'windows', maxAvatarWidth: 220,
       callbacks: {
+        walkWorld: motion.world,
+        walkOutside: motion.walk,
         saveMemory: (memory) => run(repo.saveMemory(profile.id, memory)),
         savePosition: (position) => run(repo.saveSettings({ position })),
         openSettings: () => run(openSettings()),
@@ -114,6 +129,24 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
     }) as EventListener, true, dragCleanups);
   };
 
+  const updateGaugeLabels = () => {
+    document.querySelector('#scale-value')!.textContent = `${field('scale').value} %`;
+    document.querySelector('#frequency-value')!.textContent = ['Calme','Normale','Vive'][Number(field('frequency').value)] ?? '';
+    document.querySelector('#chattiness-value')!.textContent = ['Silencieux','Salutations','Toutes'][Number(field('chattiness').value)] ?? '';
+  };
+  for (const name of ['scale','frequency','chattiness']) on(field(name), 'input', updateGaugeLabels);
+  on(document.querySelector('#perch')!, 'click', () => {
+    const status = document.querySelector('#desktop-status')!;
+    if (!settings.windowPerching) { status.textContent = 'Activez les bords des fenêtres et enregistrez, puis cliquez sur une autre fenêtre pour la choisir.'; return; }
+    run((async () => {
+      await call('set_launcher_open', { open: false });
+      panel.hidden = true;
+      const rect = companion!.shadow.querySelector('.pc-actor')!.getBoundingClientRect();
+      await motion.configure({ enabled: settings.desktopRoaming, perching: true, paused: false, anchorX: rect.left, actorWidth: rect.width, actorHeight: rect.height });
+      try { await call('perch_companion'); status.textContent = ''; }
+      catch (error) { await call('set_launcher_open', { open: true }); status.textContent = String(error); panel.hidden = false; }
+    })());
+  });
   const launcher = createLauncher(repo, bridge, async () => { await mount(); bindDrag(); });
   cleanups.push(() => launcher.destroy());
   try {
@@ -125,14 +158,15 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
     cleanups.push(await bridge.listen('desktop-settings', () => { run(openSettings()); }));
     cleanups.push(await bridge.listen('desktop-menu', () => { run(launcher.open()); }));
     on(document.querySelector('#open-launcher')!, 'click', () => { panel.hidden = true; run(launcher.open()); });
-    on(document.querySelector('#close-settings')!, 'click', () => { panel.hidden = true; });
-    on(document.querySelector('#hide')!, 'click', () => {
+    on(document.querySelector('#close-settings')!, 'click', () => run((async () => { await call('set_launcher_open', { open: false }); panel.hidden = true; })()));
+    on(document.querySelector('#hide')!, 'click', () => run((async () => {
+      await call('set_launcher_open', { open: false });
       panel.hidden = true;
-      run(call('hide_companion'));
-    });
+      await call('hide_companion');
+    })()));
     on(document.querySelector('#quit')!, 'click', () => run(call('quit_app')));
     on(window, 'keydown', ((event: KeyboardEvent) => {
-      if (event.key === 'Escape') { panel.hidden = true; if (!launcher.panel.hidden) run(launcher.close()); }
+      if (event.key === 'Escape') { if (!panel.hidden) run((async () => { await call('set_launcher_open', { open: false }); panel.hidden = true; })()); else if (!launcher.panel.hidden) run(launcher.close()); }
     }) as EventListener);
     on(form, 'submit', (event) => {
       event.preventDefault();
@@ -140,11 +174,19 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
         await repo.saveSettings({
           activeProfileId: field('activeProfileId').value,
           userName: field('userName').value,
-          scale: Number(field('scale').value),
-          frequency: field('frequency').value as Settings['frequency'],
-          chattiness: field('chattiness').value as Settings['chattiness'],
+          scale: Number(field('scale').value) / 100,
+          frequency: (['calm','normal','lively'] as const)[Number(field('frequency').value)] ?? 'normal',
+          chattiness: (['silent','greetings','all'] as const)[Number(field('chattiness').value)] ?? 'all',
+          desktopRoaming: (field('desktopRoaming') as HTMLInputElement).checked,
+          windowPerching: (field('windowPerching') as HTMLInputElement).checked,
           reduceMotion: field('reduceMotion').value as Settings['reduceMotion'],
         });
+        if (field('dialoguePreset').value === 'terry') {
+          const profile = await repo.getProfile(field('activeProfileId').value);
+          if (!profile || profile.meta.source === 'builtin') throw new Error('Choisissez votre avatar importé pour appliquer ce profil.');
+          await repo.saveProfile(applyTerryPersona(profile));
+        }
+        await call('set_launcher_open', { open: false });
         await mount();
         bindDrag();
         panel.hidden = true;
@@ -152,6 +194,7 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
     });
     // Independent of pointer events: Windows can recover interaction after passthrough.
     let last = '';
+    let lastActorGeometry = { anchorX: 160, actorWidth: 116, actorHeight: 116 };
     let pending = false;
     const updateRegions = () => {
       if (pending) return;
@@ -167,6 +210,9 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
       toolbar.style.left = useLeft ? '-34px' : 'auto';
       toolbar.style.paddingLeft = useLeft ? '0' : '8px';
       toolbar.style.paddingRight = useLeft ? '8px' : '0';
+      const reduced = settings.reduceMotion === 'on' || (settings.reduceMotion === 'auto' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+      if (actorRect.width > 0 && actorRect.height > 0) lastActorGeometry = { anchorX: actorRect.left, actorWidth: actorRect.width, actorHeight: actorRect.height };
+      run(motion.configure({ enabled: settings.desktopRoaming && !reduced, perching: settings.windowPerching, paused: !launcher.panel.hidden || !panel.hidden || !error.hidden || companion!.isHidden, ...lastActorGeometry }));
       const elements = [launcher.panel, panel, error, ...shadow.querySelectorAll('.pc-hit, .pc-toolbar, .pc-bubble, .pc-restore')];
       const regions = hitRegions(elements, innerWidth, innerHeight);
       const serialized = JSON.stringify(regions);
@@ -189,6 +235,7 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
     release();
     for (const cleanup of [...dragCleanups, ...cleanups]) cleanup();
     companion?.destroy();
+    motion.destroy();
     store.close();
   };
 }

@@ -1,3 +1,4 @@
+import { normalizeSourceUrls } from '../../core/profile/persona';
 import { fileKind, MAX_FILE_BYTES, type ImportFile } from '../../core/avatar/importer';
 import { createCompanion, exportCompanionPack, MAX_REFERENCES, MAX_REFERENCE_BYTES, prepareReferences, type PreparedReference } from '../../core/creation/character';
 import { LocalProfileGenerator } from '../../core/profile/generator';
@@ -12,6 +13,7 @@ export function createLauncher(repo: Repository, bridge: DesktopBridge, activate
   const form = document.querySelector<HTMLFormElement>('#avatar-form')!;
   const input = document.querySelector<HTMLInputElement>('#avatar-file')!;
   const name = document.querySelector<HTMLInputElement>('#avatar-name')!;
+  const sources = document.querySelector<HTMLTextAreaElement>('#avatar-sources')!;
   const universe = document.querySelector<HTMLInputElement>('#avatar-universe')!;
   const description = document.querySelector<HTMLTextAreaElement>('#avatar-description')!;
   const status = document.querySelector<HTMLElement>('#avatar-status')!;
@@ -97,7 +99,7 @@ export function createLauncher(repo: Repository, bridge: DesktopBridge, activate
     const generated = await new LocalProfileGenerator().generate({ name: name.value, description: description.value, language: 'fr' });
     if (current !== profileRevision) return;
     const tone = { cheerful: 'enjoué', calm: 'calme', playful: 'espiègle', shy: 'timide', grumpy: 'ronchon' }[generated.profile.tone];
-    document.querySelector('#profile-preview')!.textContent = `${generated.profile.name}${universe.value.trim() ? ` · ${universe.value.trim()}` : ''} · Français · Ton ${tone}. Profil proposé à partir de votre description, sans recherche ni analyse IA. Vous pouvez le corriger avant de créer.`;
+    document.querySelector('#profile-preview')!.textContent = `${generated.profile.name}${universe.value.trim() ? ` · ${universe.value.trim()}` : ''} · Français · Ton ${tone}. Identité non vérifiée. Réglage local provisoire, sans analyse des images ni consultation des liens.`;
   };
   const render = () => {
     for (const view of views) view.destroy();
@@ -180,7 +182,7 @@ export function createLauncher(repo: Repository, bridge: DesktopBridge, activate
   }) as EventListener);
   on(window, 'dragover', (event) => { event.preventDefault(); });
   on(window, 'drop', (event) => { event.preventDefault(); });
-  for (const field of [name, universe, description]) on(field, 'input', () => { createdProfileId = undefined; attempt(showProfile); });
+  for (const field of [name, universe, description, sources]) on(field, 'input', () => { createdProfileId = undefined; attempt(showProfile); });
   on(form, 'submit', (event) => {
     event.preventDefault();
     if (!references.length || reading || busy) return;
@@ -188,7 +190,7 @@ export function createLauncher(repo: Repository, bridge: DesktopBridge, activate
     attempt(async () => {
       try {
         if (!createdProfileId) {
-          const profile = await createCompanion(repo, { references: references.map((r) => r.prepared), primaryIndex, name: name.value, universe: universe.value, description: description.value });
+          const profile = await createCompanion(repo, { references: references.map((r) => r.prepared), primaryIndex, name: name.value, universe: universe.value, description: description.value, sourceUrls: normalizeSourceUrls(sources.value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)) });
           createdProfileId = profile.id;
         }
         await play(createdProfileId);

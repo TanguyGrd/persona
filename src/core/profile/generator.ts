@@ -127,7 +127,7 @@ export class LocalProfileGenerator implements ProfileGenerator {
       uncertainties.push('Aucune description : personnalité neutre appliquée par défaut.');
     }
     if (!a.tone) {
-      uncertainties.push('Ton de voix non identifié : « cheerful » (enjoué) utilisé par défaut.');
+      uncertainties.push('Ton de voix non identifié : « calm » (calme) utilisé par défaut.');
     } else {
       const tied = TONES.filter((t) => t !== a.tone && a.toneVotes[t] === a.toneVotes[a.tone!]);
       if (tied.length) uncertainties.push(`Ton ambigu entre « ${a.tone} » et « ${tied.join('», «')} » : vérifiez le ton choisi.`);
@@ -142,7 +142,7 @@ export class LocalProfileGenerator implements ProfileGenerator {
       name,
       bio: description,
       language: lang.language,
-      tone: a.tone ?? 'cheerful',
+      tone: a.tone ?? 'calm',
       traits: a.traits,
       entrance: 'random',
       phrases: {},

@@ -41,7 +41,7 @@ const fr: LanguageBook = {
       default: ['Bon après-midi{,user} !', 'Salut{,user} ! Ça se passe bien, ce {day} ?', 'Coucou ! Une petite pause ?'],
       cheerful: ['Salut{,user} ! L’après-midi s’annonce génial !', 'Hello ! On continue la journée ? Moi, j’ai la forme !'],
       calm: ['Bon après-midi. On continue tranquillement ?', 'Salut{,user}. N’oublie pas de boire un peu d’eau.'],
-      playful: ['Coucou ! C’est l’heure du goûter, non ? Non ? Dommage.', 'Te revoilà ! Je m’entraînais à marcher sur les bords de l’écran.'],
+      playful: ['Coucou ! C’est l’heure du goûter, non ? Non ? Dommage.', 'Te revoilà ! On reprend ?'],
       shy: ['Euh… salut{,user}. Je ne te dérange pas ?', 'Coucou… je me fais minuscule, promis.'],
       grumpy: ['Ah, c’est toi. Bon après-midi, j’imagine.', 'Salut. J’allais faire la sieste, mais bon.'],
     },
@@ -89,7 +89,7 @@ const fr: LanguageBook = {
     grumpy: ['Ça suffit !', 'Tu cherches les ennuis ?'],
   },
   idle: {
-    default: ['Je me promène un peu.', 'Joli site, ça !', 'Tu savais que je pouvais marcher ? Regarde !', 'N’oublie pas de faire une pause.'],
+    default: ['Je suis là si besoin.', 'On fait une pause ?', 'Je reste dans le coin.', 'N’oublie pas de faire une pause.'],
     cheerful: ['Quelle belle journée !', 'J’adore être ici avec toi !'],
     calm: ['Respire profondément… voilà.', 'Tout va bien.'],
     playful: ['Et si je sautais par-dessus cette barre de défilement ?', 'Je compte les pixels. J’en suis à mille deux.', 'Tu as {site} ouvert ? Je fais le guide ?'],
@@ -177,7 +177,7 @@ const en: LanguageBook = {
     grumpy: ['That’s enough!', 'Looking for trouble?'],
   },
   idle: {
-    default: ['Just taking a little walk.', 'Nice site!', 'Did you know I can walk? Watch!', 'Don’t forget to take a break.'],
+    default: ['I’m here if you need me.', 'Time for a short break?', 'I’ll stay nearby.', 'Don’t forget to take a break.'],
     cheerful: ['What a lovely day!', 'I love hanging out here with you!'],
     calm: ['Breathe in… and out.', 'All is well.'],
     playful: ['What if I jumped over the scrollbar?', 'I’m counting pixels. I’m at one thousand and two.', 'Browsing {site}? Want a tour guide?'],

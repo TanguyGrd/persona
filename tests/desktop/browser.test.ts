@@ -148,6 +148,7 @@ describe('desktop frontend with real Chromium and mocked native IPC', () => {
       await expect.poll(() => page.locator('#reference-list .reference').count()).toBe(3);
       await page.locator('#reference-list .reference').nth(1).getByRole('button', { name: 'Choisir cette vue' }).click();
       await expect.poll(() => page.locator('#reference-list .reference').nth(1).getAttribute('data-primary')).toBe('1');
+      await page.locator('#identity-details summary').click();
       await page.locator('#avatar-name').fill('Mousse');
       await page.locator('#avatar-universe').fill('Le jardin des lucioles');
       await page.locator('#avatar-description').fill('Calme et curieux');
@@ -199,7 +200,8 @@ describe('desktop frontend with real Chromium and mocked native IPC', () => {
     await expect.poll(() => page.locator('#reference-list .reference').count()).toBe(3);
     await page.getByRole('button', { name: 'Retirer profil.svg', exact: true }).click();
     expect(await page.locator('#reference-list .reference').count()).toBe(2);
-    await page.locator('#avatar-name').fill('');
+    // No identity field is required for instant creation.
+    expect(await page.locator('#avatar-name').isVisible()).toBe(false);
     await page.locator('#avatar-create').click();
     await expect.poll(() => page.locator('#launcher').isVisible()).toBe(false);
     const settings = await stored<{ activeProfileId: string }>('settings');
@@ -268,6 +270,57 @@ describe('desktop frontend with real Chromium and mocked native IPC', () => {
     expect(saved?.svg).toContain('2000 100');
   });
 
+  it('keeps identity optional, saves unverified user links and offers gauges plus an explicit Terry profile', async () => {
+    await openWorkshop();
+    expect(await page.locator('#avatar-name').isVisible()).toBe(false);
+    await page.locator('#avatar-file').setInputFiles([(await referenceFiles())[0]!]);
+    await expect.poll(() => page.locator('#avatar-create').isEnabled()).toBe(true);
+    await page.screenshot({ path: join(root, 'test-results', 'v02-images-first.png') });
+    await page.locator('#identity-details summary').click();
+    await page.locator('#avatar-sources').fill('https://fr.wikipedia.org/wiki/Batman_Beyond');
+    await page.locator('#avatar-create').click();
+    await expect.poll(() => page.locator('#launcher').isVisible()).toBe(false);
+    await emit('desktop-settings');
+    await page.locator('[name="dialoguePreset"]').selectOption('terry');
+    await page.locator('[name="scale"]').fill('125');
+    await page.locator('[name="frequency"]').fill('2');
+    await page.locator('[name="chattiness"]').fill('0');
+    await page.locator('[name="desktopRoaming"]').uncheck();
+    expect(await page.locator('#scale-value').textContent()).toBe('125 %');
+    await page.screenshot({ path: join(root, 'test-results', 'v02-gauges.png') });
+    await page.locator('#settings-form button[type="submit"]').click();
+    await expect.poll(() => page.locator('#settings').isVisible()).toBe(false);
+    expect(await hit().getAttribute('aria-label')).toContain('Terry McGinnis');
+    const settings = await stored<{activeProfileId:string;desktopRoaming:boolean}>('settings');
+    expect(settings!.desktopRoaming).toBe(false);
+    const profiles = await stored<Record<string,{meta:{sourceUrls:string[];dialoguePreset:string}}>>('profiles');
+    expect(profiles![settings!.activeProfileId]!.meta.sourceUrls).toEqual(['https://fr.wikipedia.org/wiki/Batman_Beyond']);
+    expect(profiles![settings!.activeProfileId]!.meta.dialoguePreset).toBe('terry-mcginnis-fr@1');
+    await page.reload(); await expect.poll(() => commands()).toContain('desktop_ready');
+    await emit('desktop-settings');
+    expect(await page.locator('[name="scale"]').inputValue()).toBe('125');
+    expect(await page.locator('[name="frequency"]').inputValue()).toBe('2');
+    expect(await page.locator('[name="chattiness"]').inputValue()).toBe('0');
+  });
+
+  it('does not request a window perch before explicit opt-in and pauses native movement while settings are open', async () => {
+    await emit('desktop-settings');
+    await page.locator('#perch').click();
+    expect(await commands()).not.toContain('perch_companion');
+    await page.locator('[name="windowPerching"]').check();
+    await page.locator('#settings-form button[type="submit"]').click();
+    await expect.poll(() => page.locator('#settings').isVisible()).toBe(false);
+    await emit('desktop-settings');
+    await expect.poll(() => page.evaluate(() => {
+      const call=window.desktopHarness.calls.filter(c=>c.command==='configure_motion').at(-1);
+      return (call?.args?.config as {paused:boolean}|undefined)?.paused;
+    })).toBe(true);
+    await page.locator('#perch').click();
+    await expect.poll(() => commands()).toContain('perch_companion');
+    await expect.poll(() => page.locator('#settings').isVisible()).toBe(false);
+    expect(await page.locator('#error').isVisible()).toBe(false);
+  });
+
   it('animates Pip and keeps a short click as a stage reaction, without native dragging', async () => {
     expect(await actor().getAttribute('data-activity')).toBe('entering');
     await settled();
@@ -301,6 +354,8 @@ describe('desktop frontend with real Chromium and mocked native IPC', () => {
     await hit().hover();
     await page.locator('persona-companion [data-action="hide"]').click();
     await expect.poll(() => commands()).toContain('hide_companion');
+    await expect.poll(() => actor().isVisible(), { timeout: 4000 }).toBe(false);
+    expect(await page.evaluate(() => window.desktopHarness.calls.filter(c => c.command === 'configure_motion').every(c => { const config=c.args?.config as {actorWidth:number;actorHeight:number}; return config.actorWidth>0 && config.actorHeight>0; }))).toBe(true);
     await emit('desktop-show');
     await expect.poll(() => actor().isVisible()).toBe(true);
     await emit('desktop-settings');
@@ -313,7 +368,7 @@ describe('desktop frontend with real Chromium and mocked native IPC', () => {
     page.on('pageerror', (error) => errors.push(error.message));
     await emit('desktop-settings');
     await page.locator('[name="userName"]').fill('Tanguy');
-    await page.locator('[name="scale"]').selectOption('1.25');
+    await page.locator('[name="scale"]').fill('125');
     await page.locator('[name="reduceMotion"]').selectOption('on');
     await page.locator('#settings-form button[type="submit"]').click();
     await expect.poll(() => page.locator('#settings').isVisible()).toBe(false);
@@ -321,7 +376,7 @@ describe('desktop frontend with real Chromium and mocked native IPC', () => {
     await expect.poll(() => commands()).toContain('desktop_ready');
     await emit('desktop-settings');
     expect(await page.locator('[name="userName"]').inputValue()).toBe('Tanguy');
-    expect(await page.locator('[name="scale"]').inputValue()).toBe('1.25');
+    expect(await page.locator('[name="scale"]').inputValue()).toBe('125');
     expect(await page.locator('[name="activeProfileId"]').inputValue()).toBe('builtin:pip');
     await page.locator('#close-settings').click();
     expect(await page.locator('persona-companion').count()).toBe(1);
