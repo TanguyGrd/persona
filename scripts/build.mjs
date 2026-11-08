@@ -51,7 +51,7 @@ async function copyStatic() {
   await cp(join(root, 'src/hosts/playground/playground.css'), join(play, 'playground.css'));
 }
 
-if (!watch) await rm(join(root, 'dist'), { recursive: true, force: true });
+if (!watch) await Promise.all([out, play].map((dir) => rm(dir, { recursive: true, force: true })));
 await mkdir(out, { recursive: true });
 await mkdir(play, { recursive: true });
 

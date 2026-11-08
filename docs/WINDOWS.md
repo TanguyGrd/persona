@@ -1,12 +1,15 @@
 # Windows
 
-Deux sujets : utiliser Persona **aujourd'hui** sous Windows (extension Chrome / Edge), et le **futur hôte
-Windows** qui affichera le compagnon par-dessus toutes les applications.
+Persona dispose de deux hôtes : l'extension Chrome / Edge et une première application de bureau
+Windows basée sur Tauri 2. Ils réutilisent le même moteur, les mêmes avatars et la même scène.
+Pour lancer l'application de bureau, rendez-vous directement à la [section 2](#2-application-de-bureau-windows-mvp).
 
 ## 1. Tester l'extension sur un PC Windows (aujourd'hui)
 
-Tant que la Pull Request n'est pas fusionnée, le code est sur la branche **`claude/nifty-brahmagupta-53buim`**
-(la branche `main` est encore vide). Toutes les commandes ci-dessous en tiennent compte.
+Le guide Chrome ci-dessous utilise la branche historique `claude/nifty-brahmagupta-53buim`.
+Le MVP de bureau est développé sur la branche locale dédiée `feat/windows-companion-mvp`,
+à partir du même code. Utilisez le checkout contenant cette branche pour la section 2 ;
+ne remplacez pas votre branche de travail ni vos modifications locales.
 
 ### Étape 1 — Installer les outils (une seule fois)
 
@@ -44,7 +47,7 @@ décompressez-le et ouvrez PowerShell dans le dossier obtenu.
 ### Étape 3 — Compiler
 
 ```powershell
-npm install
+npm ci
 ```
 
 ```powershell
@@ -136,46 +139,151 @@ raccourci, changez-le dans `chrome://extensions/shortcuts`.
 
 `chrome://extensions` → carte Persona → **Supprimer**. Les réglages et personnages stockés sont effacés avec elle.
 
-## 2. Futur hôte Windows
+## 2. Application de bureau Windows (MVP)
 
-Objectif : le compagnon vit sur le **bureau**, au-dessus de toutes les fenêtres, se pose sur la barre des
-tâches ou le bord des fenêtres. À démarrer **après** validation de l'expérience Chrome.
+L'hôte Tauri 2 est dans `src-tauri/`, son interface TypeScript dans `src/hosts/windows/`.
+Le compagnon utilise `src/core`, `src/stage` et `characters/pip` : il ne nécessite aucun compte,
+serveur, abonnement ou clé API.
 
-### Ce qui est déjà réutilisable
+### Prérequis Windows
 
-| Brique | Réutilisation |
+Utilisez Windows 10/11 64 bits et un terminal PowerShell ou une invite de commandes :
+
+1. **Node.js 22 ou version supérieure**, avec npm : <https://nodejs.org/>.
+2. **Rust stable ≥ 1.90 via rustup**, avec la chaîne MSVC : <https://rustup.rs/>. Conservez le choix
+   `stable-x86_64-pc-windows-msvc` proposé par défaut.
+3. **Visual Studio 2022 Build Tools** : <https://visualstudio.microsoft.com/visual-cpp-build-tools/>.
+   Dans l'installateur, sélectionnez **Développement Desktop en C++**, avec les outils MSVC et un
+   **SDK Windows 10/11**. Redémarrez le terminal après installation.
+4. **Microsoft Edge WebView2 Runtime** : normalement déjà installé sur Windows 10/11 ; sinon utilisez
+   l'installateur Evergreen officiel : <https://developer.microsoft.com/microsoft-edge/webview2/>.
+
+Vérifiez les outils :
+
+```powershell
+node --version
+npm --version
+rustc --version
+cargo --version
+rustup show active-toolchain
+```
+
+### Installer et lancer
+
+Dans votre checkout de Persona, passez sur la branche du MVP :
+
+```powershell
+git fetch origin
+git switch feat/windows-companion-mvp
+```
+
+Puis installez et lancez :
+
+```powershell
+npm ci
+npm run desktop:dev
+```
+
+`desktop:dev` compile l'interface, démarre son serveur de développement et lance Tauri.
+Le premier lancement compile les dépendances Rust et peut prendre plusieurs minutes.
+Les changements TypeScript sont reconstruits pendant le développement ; relancez l'application pour
+recharger la WebView (pas de HMR). Après un changement HTML/CSS, redémarrez aussi la commande. Les
+changements Rust entraînent une recompilation native.
+
+Le comportement implémenté est le suivant, à valider sur votre PC avec la liste de contrôle ci-dessous :
+
+- Pip apparaît dans une fenêtre de **360 × 320** pixels logiques, transparente, sans bordure et toujours
+  au premier plan. La fenêtre n'occupe pas tout l'écran.
+- Les animations, bulles et réactions aux clics proviennent de la scène partagée. Un clic court fait
+  réagir Pip ; un glisser sur le personnage, au-delà d'un petit seuil, déplace la fenêtre sur le bureau.
+- Les zones transparentes en dehors du personnage, des bulles, des boutons et des réglages laissent
+  passer les interactions vers les applications situées dessous. L'hôte natif surveille la position
+  du curseur pour réactiver l'interaction sur ces zones ; ce comportement reste à vérifier sur Windows.
+- Le bouton **–** masque le compagnon. L'icône Persona dans la **zone de notification** permet de
+  l'afficher ou le masquer, d'ouvrir les réglages, de réinitialiser sa position et de **quitter**.
+  Si l'icône est rangée, ouvrez le chevron de la zone de notification Windows.
+- Les réglages du MVP proposent le prénom utilisé dans les répliques, le personnage disponible,
+  la taille, la fréquence d'activité, les répliques et la réduction des mouvements.
+
+L'interface conserve réglages, profils et mémoire des salutations dans le `localStorage` de la WebView,
+via le `Repository` existant. La position de la fenêtre est conservée séparément dans le répertoire de
+configuration de l'application. Les données de l'extension Chrome restent distinctes : aucune
+synchronisation automatique, création d'avatar ou édition avancée de profil n'est ajoutée à ce MVP.
+La commande de réinitialisation de position permet de récupérer une fenêtre déplacée hors écran.
+Les données de développement et celles de l'application empaquetée utilisent des origines WebView
+distinctes ; les réglages ne sont pas transférés automatiquement de l'une à l'autre.
+
+### Compiler l'application et l'installeur
+
+```powershell
+npm run desktop:build
+```
+
+Cette commande construit la version optimisée et l'installeur **NSIS**. Les sorties Tauri sont sous
+`src-tauri/target/release/`, et l'installeur sous `src-tauri/target/release/bundle/nsis/`.
+Le binaire peut être lancé depuis son dossier de sortie ; l'installeur sert à une installation locale.
+Ce MVP n'est pas signé : Windows peut afficher un avertissement SmartScreen. Aucun dépôt public,
+publication automatique ou déploiement n'est effectué par les commandes de développement.
+
+### Tests automatisés
+
+Depuis la racine du dépôt :
+
+```powershell
+npm run typecheck
+npm test
+npm run desktop:frontend
+npx playwright install chromium
+npm run test:desktop
+npm run desktop:test:native
+```
+
+`desktop:frontend` compile seulement l'interface de bureau. `test:desktop` vérifie l'adaptateur de bureau
+et la scène dans un navigateur ; il ne prouve pas la transparence ni le passage des clics dans Windows.
+Les tests Rust vérifient la logique native testable. `desktop:build` reste nécessaire pour vérifier la
+compilation et l'empaquetage Windows.
+
+Pour vérifier aussi l'extension existante :
+
+```powershell
+npx playwright install chromium
+npm run test:e2e
+npm run verify:package
+```
+
+Le workflow GitHub **Windows desktop** compile et teste le code sur un runner Windows puis conserve
+un installeur non signé comme artefact de CI ; il ne publie aucune release et ne remplace pas les
+vérifications visuelles ci-dessous. Son exécution et son succès doivent être vérifiés séparément.
+
+### Validation manuelle sur Windows
+
+Les vérifications natives ci-dessous sont nécessaires avant de considérer le MVP validé sur votre PC :
+
+| Action | Résultat à vérifier |
 |---|---|
-| `src/core/*` | Telle quelle (TypeScript sans API navigateur). |
-| `src/stage/*` | Telle quelle dans une WebView : c'est du DOM pur. |
-| `KeyValueStore` | À implémenter sur un fichier JSON dans `%APPDATA%\Persona\`. |
-| `HostServices` (`src/core/host.ts`) | `openSettings`, `placeName` (nom de l'appli au premier plan), `disableHere` (exclure une appli). |
+| Lancer `npm run desktop:dev` | Pip est visible sur le bureau, le fond est transparent, sans bordure ni fenêtre opaque. |
+| Ouvrir et déplacer une autre application | Pip reste au premier plan et son animation continue. |
+| Attendre puis cliquer une fois sur Pip | Animation de repos, salutations et réaction au clic ; le clic ne déplace pas la fenêtre. |
+| Glisser Pip vers plusieurs endroits | La fenêtre suit la souris et reste utilisable après le relâchement. |
+| Cliquer ou sélectionner du texte sous les zones vides autour de Pip | L'application dessous reçoit l'interaction ; aucun grand rectangle invisible ne la bloque. |
+| Survoler Pip et utiliser ses boutons ou la bulle | Les zones visibles restent interactives malgré le passage des clics autour. |
+| Masquer puis afficher via la zone de notification | Le compagnon revient et réagit ; l'icône reste disponible pendant le masquage. |
+| Modifier prénom, taille et mouvements réduits ; relancer | Les réglages sont conservés et les bulles restent lisibles. |
+| Déplacer, quitter et relancer | La position est restaurée ; « Réinitialiser la position » récupère une fenêtre perdue. |
+| Tester deux écrans et des échelles 100 %, 125 %, 150 % | Aucun décalage entre zones cliquables et dessin, déplacement et restauration corrects. |
+| Débrancher un écran, puis relancer ou réinitialiser | Le compagnon peut revenir sur un écran disponible. |
+| Choisir « Quitter » | La fenêtre et l'icône disparaissent ; aucun compagnon ne reste actif. |
+| Installer puis lancer le NSIS sur un PC équipé de WebView2 | Installation et lancement fonctionnent indépendamment du serveur de développement. |
 
-### Choix technique recommandé
+### État de validation et limites
 
-**Tauri 2** (WebView2 déjà présent sur Windows 10/11) plutôt qu'Electron : installeur ~5–10 Mo au lieu
-de ~100 Mo, consommation mémoire plus faible, ce qui compte pour une appli toujours ouverte.
-Electron reste une option si l'on veut partager plus de code Node (capri-companion l'utilise).
+L'implémentation est préparée dans un environnement cloud Linux, **sans session Windows disponible**.
+Les animations et les tests de navigateur ne constituent pas une validation du comportement natif
+Windows. Les résultats exacts des commandes exécutées sont consignés dans le compte rendu de livraison.
+L'audit initial a confirmé la compilation et les 83 tests unitaires existants ; le téléchargement du
+Chromium Playwright était refusé par la politique réseau (`cdn.playwright.dev`).
 
-### Étapes
-
-1. Fenêtre plein écran **transparente, sans bordure, toujours au premier plan**, exclue de la barre des tâches
-   et d'Alt+Tab (`WS_EX_TOOLWINDOW`).
-2. **Clics traversants** : la fenêtre ignore la souris (`WS_EX_TRANSPARENT` / `set_ignore_cursor_events`)
-   sauf au-dessus du personnage, de la bulle et de la barre d'outils. La scène connaît déjà ces zones
-   (`.pc-hit`, `.pc-bubble`, `.pc-toolbar`) : il suffit de remonter leurs rectangles à l'hôte.
-3. **Sol** : remplacer « bas de la fenêtre du navigateur » par la zone de travail (`SystemParametersInfo
-   SPI_GETWORKAREA`), donc le haut de la barre des tâches ; multi-écrans via `EnumDisplayMonitors`.
-4. **Perchoirs** (évolution du moteur) : nouvelle activité `perch` sur le bord supérieur de la fenêtre active
-   (`GetForegroundWindow` + `DwmGetWindowAttribute`), en suivant ses déplacements.
-5. **Discrétion** : se cacher automatiquement en plein écran (jeux, vidéos, présentations) et respecter
-   « Ne pas déranger » / heures calmes.
-6. **Démarrage** avec Windows (clé `Run` ou tâche planifiée), icône dans la zone de notification
-   (masquer, réglages, quitter).
-7. **Réglages et personnages** : réutiliser la page d'options (même code, stockage fichier) et proposer
-   l'import d'un pack `.persona.json` exporté depuis l'extension.
-8. **Distribution** : installeur MSIX ou NSIS **signé** (sinon SmartScreen avertit l'utilisateur).
-
-### Synchronisation avec l'extension
-
-Phase 1 : export / import de packs `.persona.json`. Phase 2 (premium) : compte et synchronisation des
-personnages entre navigateur et bureau.
+Ce MVP ne fournit pas encore de démarrage automatique avec Windows, de dissimulation automatique
+pendant les jeux/présentations, de perchoirs sur les fenêtres, de synchronisation Chrome, d'agent IA,
+de voix ou de paiement. La marche se déroule dans la petite scène de la fenêtre ; le déplacement
+sur le bureau est manuel.

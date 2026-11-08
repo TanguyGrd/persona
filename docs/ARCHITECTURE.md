@@ -11,8 +11,9 @@ src/core/              Cœur indépendant de toute plateforme (TypeScript pur)
   host.ts              Contrat d'un hôte (Chrome, Windows)
 src/stage/             Scène web : rendu DOM, bulles, glisser-déposer, clavier
 src/hosts/chrome/      Chrome Host : manifest MV3, content script, service worker, popup, options
-src/hosts/playground/  Hôte web minimal (localStorage) — démo et base du futur hôte Windows
-src/hosts/windows/     Windows Host : plan et contrat (pas encore implémenté)
+src/hosts/playground/  Hôte web minimal (localStorage) — démo
+src/hosts/windows/     Interface du compagnon Windows (Repository + scène partagée)
+src-tauri/            Hôte natif Tauri 2 : fenêtre, souris, zone de notification et position
 ```
 
 ## Les six briques
@@ -23,7 +24,7 @@ src/hosts/windows/     Windows Host : plan et contrat (pas encore implémenté)
 | **Animation Engine** | `src/core/animation/brain.ts` | Ce que fait le personnage et combien de temps : entrée, repos, regard, coucou, marche, saut, parole, réactions aux clics, traîné, chute, sommeil, sortie. Déterministe (RNG injecté), piloté par les traits du profil. | traits du profil |
 | **Avatar Assets** | `src/core/avatar` | À quoi il ressemble : SVG articulé (`data-part`), SVG simple, image (PNG/JPEG/WebP/GIF animé), sprite sheet (grille Persona, Aseprite, TexturePacker), pack `.persona.json`. | rien |
 | **Chrome Host** | `src/hosts/chrome` | Affichage dans les pages, stockage `chrome.storage.local`, popup, options, raccourci clavier. | core + stage |
-| **Windows Host** | `src/hosts/windows` (à venir) | Fenêtre transparente au-dessus des applications. Réutilise `core` + `stage`. | core + stage |
+| **Windows Host** | `src/hosts/windows`, `src-tauri` | Petite fenêtre transparente Tauri 2, premier plan, glisser natif, passage des clics hors des zones interactives, zone de notification. Réutilise `core` + `stage`. | core + stage + Tauri 2 |
 | **Agent Interface** | `src/core/agent/agent.ts` | Contrat `AgentProvider` (tâches, évènements, palier free/payg/premium). `NO_AGENT` par défaut. | rien |
 
 Règles de dépendance : `core` n'importe jamais `stage` ni `hosts` ; `stage` n'importe jamais `chrome.*` ;
@@ -55,3 +56,20 @@ sont remplies localement. `planGreeting()` évite de saluer en boucle quand on o
 confiance et liste les **incertitudes** (aucune recherche en ligne, langue devinée, ton non identifié…).
 L'éditeur les affiche et invite à corriger. `CachedProfileGenerator` met le résultat en cache : un futur
 générateur IA payant (même interface `ProfileGenerator`) ne sera appelé qu'une fois par personnage.
+
+## Cycle de vie du compagnon Windows
+
+L'interface Windows monte le même `Companion` à partir du `Repository` et des personnages intégrés.
+Son `KeyValueStore` utilise le stockage local de la WebView ; aucune API Chrome n'est nécessaire.
+Les réglages et la mémoire des salutations restent séparés de ceux de l'extension. Le shell Tauri 2
+conserve la position native indépendamment de `Settings.position`, qui décrit la scène DOM.
+
+Le shell possède une petite fenêtre transparente, sans bordure et toujours au premier plan. Le glisser
+sur le personnage déplace la fenêtre native après un seuil, tandis qu'un clic court reste une réaction
+du moteur. Les rectangles des zones interactives sont transmis au shell : une surveillance native du
+curseur permet de laisser les clics traverser les zones vides et de réactiver l'interaction au-dessus du
+personnage, des bulles et des commandes. CSS `pointer-events` seul ne suffit pas à traverser une WebView.
+La zone de notification fournit afficher/masquer, réglages, réinitialisation de position et quitter.
+
+Les [instructions Windows](WINDOWS.md#2-application-de-bureau-windows-mvp) distinguent les tests de
+l'adaptateur dans le navigateur et les vérifications natives nécessaires sur un PC Windows.

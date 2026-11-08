@@ -16,8 +16,9 @@ répliques tournent entièrement sur votre appareil.
 |---|---|---|
 | ![Popup : activer, masquer, faire parler, choisir le personnage](docs/screenshots/6-popup.png) | ![Avatar SVG importé affiché sur une page](docs/screenshots/8-avatar-importe.png) | ![Profil généré avec confiance et incertitudes à vérifier](docs/screenshots/7-editeur-profil.png) |
 
-MVP actuel : **extension Chrome (Manifest V3)**. Hôte Windows (au-dessus de toutes les fenêtres) prévu
-ensuite, sur la même base.
+Deux hôtes réutilisent le même moteur : **extension Chrome (Manifest V3)** et premier **MVP Windows
+avec Tauri 2**. Le guide de [lancement Windows](docs/WINDOWS.md#2-application-de-bureau-windows-mvp)
+décrit les outils requis et la validation native à effectuer sur un PC Windows.
 
 ## Ce que fait le compagnon
 
@@ -40,7 +41,7 @@ ensuite, sur la même base.
 Prérequis : Node.js 20+ et Chrome 116+ (ou Edge, Brave…).
 
 ```bash
-npm install
+npm ci
 ```
 
 ```bash
@@ -57,6 +58,10 @@ Instructions détaillées pour Windows (PowerShell, Edge, zip, tests) : [`docs/W
 |---|---|
 | `npm run build` | Compile l'extension (`dist/extension`) et le bac à sable web (`dist/playground`). |
 | `npm run watch` | Recompile à chaque modification. |
+| `npm run desktop:dev` | Lance le compagnon de bureau avec Tauri 2 (prérequis natifs requis). |
+| `npm run desktop:frontend` | Compile uniquement l’interface de bureau. |
+| `npm run desktop:build` | Compile l’application Windows et son installeur NSIS. |
+| `npm run test:desktop` | Vérifie l’adaptateur de bureau dans un navigateur, sans valider le comportement natif Windows. |
 | `npm run typecheck` | Vérifie les types TypeScript. |
 | `npm test` | Tests unitaires (Vitest). |
 | `npm run test:e2e` | Tests de bout en bout dans un vrai Chromium avec l'extension chargée (Playwright). Captures dans `test-results/`. |
@@ -90,7 +95,7 @@ Le moteur n'est lié à aucun personnage ni à Chrome :
 | Animation Engine (comportement, déterministe) | `src/core/animation` |
 | Avatar Assets (formats, import, sécurité SVG) | `src/core/avatar` |
 | Chrome Host (content script, popup, options, service worker) | `src/hosts/chrome` |
-| Windows Host (à venir) | `src/hosts/windows`, [`docs/WINDOWS.md`](docs/WINDOWS.md) |
+| Windows Host (MVP Tauri 2) | `src/hosts/windows`, `src-tauri`, [`docs/WINDOWS.md`](docs/WINDOWS.md) |
 | Agent Interface (contrat des futures tâches IA, inactif) | `src/core/agent` |
 | Scène web partagée par les hôtes | `src/stage` |
 
@@ -98,7 +103,8 @@ Plus de détails : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Vie privée et permissions
 
-- Tout est stocké dans `chrome.storage.local` ; rien n'est envoyé sur le réseau.
+- Les données restent locales : `chrome.storage.local` pour l’extension ; stockage de la WebView et
+  configuration locale pour Windows. Aucune synchronisation automatique entre les deux hôtes.
 - `host_permissions` http/https : afficher le compagnon dans les pages et l'injecter dans les onglets déjà
   ouverts à l'installation. Le compagnon ne lit pas le contenu des pages (seul le nom du site peut apparaître
   dans une réplique).
@@ -117,6 +123,6 @@ Aucune licence n'est encore choisie pour ce dépôt : tous droits réservés tan
 
 ## Feuille de route
 
-Free : compagnon et animations (ce MVP). Ensuite : hôte Windows ; Pay As You Go : tâches d'agent IA et
+Free : compagnon et animations (extension et premier hôte Windows). Ensuite : tâches d’agent IA et
 profils enrichis par IA ; Premium : voix, IA locale, personnalisation avancée. Aucun paiement n'est
 implémenté — les paliers sont seulement étiquetés dans `src/core/agent/agent.ts`.

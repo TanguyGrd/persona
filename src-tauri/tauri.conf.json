@@ -1,0 +1,47 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Persona",
+  "version": "0.1.0",
+  "identifier": "com.persona.companion",
+  "build": {
+    "beforeDevCommand": "npm run desktop:serve",
+    "beforeBuildCommand": "npm run desktop:frontend",
+    "devUrl": "http://127.0.0.1:1420",
+    "frontendDist": "../dist/windows"
+  },
+  "app": {
+    "windows": [{
+      "label": "main",
+      "title": "Persona",
+      "width": 360,
+      "height": 320,
+      "resizable": false,
+      "maximizable": false,
+      "minimizable": false,
+      "decorations": false,
+      "transparent": true,
+      "backgroundColor": "#00000000",
+      "alwaysOnTop": true,
+      "skipTaskbar": true,
+      "shadow": false,
+      "focus": false,
+      "visible": false,
+      "dragDropEnabled": false
+    }],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; frame-src 'none'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "shortDescription": "Un compagnon animé sur votre bureau",
+    "icon": ["icons/icon.ico", "icons/icon.png"],
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": false,
+        "languages": ["French", "English"]
+      }
+    }
+  }
+}

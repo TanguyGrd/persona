@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Persona</title>
+  <link rel="stylesheet" href="windows.css">
+</head>
+<body>
+  <section id="settings" aria-labelledby="settings-title" hidden>
+    <header><h1 id="settings-title">Persona</h1><button id="close-settings" type="button" aria-label="Fermer les réglages">×</button></header>
+    <form id="settings-form">
+      <label>Personnage <select name="activeProfileId"></select></label>
+      <label>Votre prénom <input name="userName" maxlength="40" autocomplete="given-name"></label>
+      <label>Taille <select name="scale"><option value="0.75">Petite</option><option value="1">Normale</option><option value="1.25">Grande</option></select></label>
+      <label>Activité <select name="frequency"><option value="calm">Calme</option><option value="normal">Normale</option><option value="lively">Vive</option></select></label>
+      <label>Paroles <select name="chattiness"><option value="all">Toutes</option><option value="greetings">Salutations</option><option value="silent">Silencieux</option></select></label>
+      <label>Animations <select name="reduceMotion"><option value="auto">Selon Windows</option><option value="on">Réduites</option><option value="off">Complètes</option></select></label>
+      <button type="submit">Enregistrer</button>
+    </form>
+    <p class="hint">Glissez Pip pour le déplacer. L’icône Persona près de l’horloge permet de le faire revenir.</p>
+    <footer><button id="hide" type="button">Masquer</button><button id="quit" type="button">Quitter Persona</button></footer>
+  </section>
+  <p id="error" role="alert" hidden></p>
+  <script type="module" src="windows.js"></script>
+</body>
+</html>
