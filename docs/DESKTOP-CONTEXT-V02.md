@@ -94,3 +94,20 @@ ne sont pas générés à partir de l’image dans ces tests.
 [Atelier centré sur les images](screenshots/v02-images-first.png) ·
 [Jauges de réglage](screenshots/v02-gauges.png).
 Ces deux captures proviennent du frontend Chromium avec pont natif simulé.
+
+
+## Livraison et CI de la révision finale
+
+Le code `759c05a` a passé les workflows
+[Windows](https://github.com/TanguyGrd/persona/actions/runs/42529343181) et
+[Chrome/Linux](https://github.com/TanguyGrd/persona/actions/runs/42529343206).
+Les tests du bureau/contrôleur/stockage, les sept tests Rust, le build NSIS, la suite Chrome et la
+vérification du ZIP ont réussi. Ces résultats confirment la compilation et les tests automatisés,
+pas une démonstration visuelle native des rebords ni une parité de fluidité avec Capri.
+
+[Installeur de test 0.2 et mode d’emploi](INSTALLER-WINDOWS.md).
+
+La tentative d’ouverture de PR est refusée par l’accès réseau à `api.github.com` (`Forbidden`).
+Aucune PR n’a été créée. La [description prête](V02-PR.md) et la
+[comparaison empilée](https://github.com/TanguyGrd/persona/compare/feat/character-workshop-phase1...feat/desktop-context-and-character-tuning?expand=1)
+sont disponibles. Aucun merge n’a été effectué.
