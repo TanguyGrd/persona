@@ -42,7 +42,16 @@ Ces outils permettent de vérifier les types Windows ; ils ne fournissent pas un
 
 Le workflow `.github/workflows/windows.yml` est prévu pour compiler et tester sur Windows et conserver
 un installeur NSIS non signé comme artefact de CI. Sa présence n'établit pas qu'une exécution distante a
-réussi. Il ne publie aucune release. La procédure d'installation des outils, de lancement et de build
+réussi. Il ne publie aucune release.
+
+La branche a été poussée sur GitHub. Le premier [run Windows desktop](https://github.com/TanguyGrd/persona/actions/runs/42508254276)
+est terminé en échec **sans démarrer de job** : GitHub affiche « The job was not started because your
+account is locked due to a billing issue. » Le workflow CI existant déclenché par ce même push est
+également en échec immédiat. Aucun résultat de build/test Windows ni artefact ne peut être revendiqué.
+Le propriétaire doit résoudre le blocage GitHub Actions pour utiliser la CI ; le lancement et le build
+locaux sous Windows restent indépendants de GitHub Actions.
+
+La procédure d'installation des outils, de lancement et de build
 sur votre PC se trouve dans [WINDOWS.md](WINDOWS.md#2-application-de-bureau-windows-mvp).
 
 Le critère « Pip utilisable sur un vrai bureau Windows » reste à confirmer sur Windows. Aucun paiement,
