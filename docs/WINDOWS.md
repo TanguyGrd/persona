@@ -1,5 +1,7 @@
 # Windows
 
+Pour installer la version de test sans Rust ni Node.js : [téléchargement et installation](INSTALLER-WINDOWS.md).
+
 Persona dispose de deux hôtes : l'extension Chrome / Edge et une première application de bureau
 Windows basée sur Tauri 2. Ils réutilisent le même moteur, les mêmes avatars et la même scène.
 Pour lancer l'application de bureau, rendez-vous directement à la [section 2](#2-application-de-bureau-windows-mvp).

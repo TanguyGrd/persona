@@ -196,3 +196,16 @@ your account is locked due to a billing issue. » Le workflow CI existant est au
 Il n'existe donc **aucun nouvel installeur Windows ni résultat de tests Windows** pour cette livraison.
 Le propriétaire du compte doit résoudre ce blocage GitHub Actions ou utiliser un poste Windows
 équipé pour compiler ; cela reste distinct des validations locales réussies ci-dessus.
+
+## Mise à jour après résolution de la facturation
+
+La relance autorisée après ajout de la carte a permis d’exécuter les jobs. Un défaut de fin de
+trajectoire, détecté par la CI Chrome, a été corrigé dans `a2ed257` sans abaisser les assertions.
+Deux tests de régression ont été ajoutés : 107 tests unitaires et 20 tests bureau passent localement.
+
+Les workflows [Windows](https://github.com/TanguyGrd/persona/actions/runs/42518500894) et
+[Chrome/Linux](https://github.com/TanguyGrd/persona/actions/runs/42518500958) ont maintenant réussi,
+y compris compilation et packaging Windows, tests Chrome E2E et chargement du ZIP dans Chromium.
+Un véritable installeur Windows non signé est disponible : [instructions et téléchargement](INSTALLER-WINDOWS.md).
+Cela remplace les blocages de build/CI décrits historiquement plus haut, sans constituer une validation
+visuelle du bureau Windows. Le blocage d’accès à l’API pour créer la PR reste distinct.
