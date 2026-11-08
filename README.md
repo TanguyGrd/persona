@@ -126,3 +126,6 @@ Aucune licence n'est encore choisie pour ce dépôt : tous droits réservés tan
 Free : compagnon et animations (extension et premier hôte Windows). Ensuite : tâches d’agent IA et
 profils enrichis par IA ; Premium : voix, IA locale, personnalisation avancée. Aucun paiement n'est
 implémenté — les paliers sont seulement étiquetés dans `src/core/agent/agent.ts`.
+
+Le menu de création Windows (import d’image local, génération IA encore à connecter) est décrit dans
+[DESKTOP-CREATION.md](docs/DESKTOP-CREATION.md).

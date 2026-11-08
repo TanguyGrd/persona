@@ -7,6 +7,25 @@
   <link rel="stylesheet" href="windows.css">
 </head>
 <body>
+  <section id="launcher" aria-labelledby="launcher-title" hidden>
+    <header><div><span class="eyebrow">VOTRE PETIT MONDE</span><h1 id="launcher-title">Persona</h1></div><button id="launcher-close" type="button">Retour au bureau</button></header>
+    <p class="intro">Un compagnon qui vous ressemble.</p>
+    <div class="menu-grid">
+      <section class="menu-card"><h2>Mes compagnons</h2><div id="character-list"></div><p class="hint">Choisissez un compagnon pour le retrouver sur votre bureau.</p></section>
+      <section class="menu-card"><h2>Créer mon compagnon</h2>
+        <form id="avatar-form">
+          <label>Son nom <input id="avatar-name" maxlength="40" required placeholder="Mon compagnon"></label>
+          <label>Sa personnalité <textarea id="avatar-description" maxlength="1000" placeholder="Curieux, calme, un peu espiègle…"></textarea></label>
+          <label id="avatar-drop" tabindex="0">Déposez votre image ici <span>ou cliquez pour choisir · PNG, JPEG, WebP, GIF, SVG · 8 Mo maximum</span><input id="avatar-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" hidden></label>
+          <div id="avatar-preview" aria-label="Aperçu du compagnon"></div>
+          <p id="avatar-status" role="status">Une image de face suffit pour les animations simples. Un PNG au fond transparent donne le meilleur résultat.</p>
+          <button id="avatar-create" type="submit" disabled>Créer et jouer</button>
+        </form>
+        <p class="hint">Vos images restent sur ce PC. Les mouvements simples sont locaux. La génération IA de poses et l’assemblage de plusieurs vues ne sont pas encore disponibles.</p>
+      </section>
+    </div>
+    <footer><span class="hint">À votre rythme, sur votre bureau.</span><button id="launcher-quit" type="button">Quitter Persona</button></footer>
+  </section>
   <section id="settings" aria-labelledby="settings-title" hidden>
     <header><h1 id="settings-title">Persona</h1><button id="close-settings" type="button" aria-label="Fermer les réglages">×</button></header>
     <form id="settings-form">
@@ -19,6 +38,7 @@
       <button type="submit">Enregistrer</button>
     </form>
     <p class="hint">Glissez Pip pour le déplacer. L’icône Persona près de l’horloge permet de le faire revenir.</p>
+    <button id="open-launcher" type="button">Mes compagnons · Créer un avatar</button>
     <footer><button id="hide" type="button">Masquer</button><button id="quit" type="button">Quitter Persona</button></footer>
   </section>
   <p id="error" role="alert" hidden></p>

@@ -67,6 +67,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await page?.context().close();
   const context = await browser.newContext({ viewport: { width: 360, height: 320 }, locale: 'fr-FR' });
+  await context.addInitScript(() => { if (!localStorage.getItem('persona:desktop:welcome-done')) localStorage.setItem('persona:desktop:welcome-done', '1'); });
   page = await context.newPage();
   await page.goto(url);
   await expect.poll(() => commands()).toContain('desktop_ready');
@@ -83,6 +84,48 @@ async function settled() {
 // A mock IPC bridge verifies frontend requests and shared-stage behavior only.
 // These tests do not establish Windows transparency, native dragging, or tray behavior.
 describe('desktop frontend with real Chromium and mocked native IPC', () => {
+  it('opens the welcome menu on first use and can play Pip', async () => {
+    // Use an untouched context, without the companion-only fixture's welcome marker.
+    const fresh = await browser.newContext({ viewport: { width: 760, height: 640 } });
+    try {
+      const welcome = await fresh.newPage();
+      await welcome.goto(url);
+      await expect.poll(() => welcome.locator('#launcher').isVisible()).toBe(true);
+      await welcome.getByRole('button', { name: '▶ Pip' }).click();
+      await expect.poll(() => welcome.locator('#launcher').isVisible()).toBe(false);
+      expect(await welcome.evaluate(() => localStorage.getItem('persona:desktop:welcome-done'))).toBe('1');
+    } finally { await fresh.close(); }
+  });
+
+  it('creates a companion from an image and keeps it after restart', async () => {
+    await page.setViewportSize({ width: 760, height: 640 });
+    await emit('desktop-menu');
+    await page.locator('#avatar-file').setInputFiles({ name: 'mousse.png', mimeType: 'image/png', buffer: await readFile(join(root, 'assets/icons/icon-128.png')) });
+    await expect.poll(() => page.locator('#avatar-create').isEnabled()).toBe(true);
+    await page.locator('#avatar-name').fill('Mousse');
+    await page.locator('#avatar-description').fill('Calme et curieux');
+    await page.screenshot({ path: join(root, 'test-results/persona-avatar-menu.png') });
+    await page.locator('#avatar-create').click();
+    await expect.poll(() => page.locator('#launcher').isVisible()).toBe(false);
+    await page.reload();
+    await expect.poll(() => commands()).toContain('desktop_ready');
+    expect(await hit().getAttribute('aria-label')).toContain('Mousse');
+    await emit('desktop-menu');
+    expect(await page.getByRole('button', { name: '▶ Mousse' }).count()).toBe(1);
+  });
+
+  it('rejects multiple views instead of pretending to generate them with AI', async () => {
+    await emit('desktop-menu');
+    await page.locator('#avatar-drop').evaluate((el) => {
+      const data = new DataTransfer();
+      data.items.add(new File(['a'], 'face.png', { type: 'image/png' }));
+      data.items.add(new File(['b'], 'profil.png', { type: 'image/png' }));
+      el.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: data }));
+    });
+    expect(await page.locator('#avatar-status').textContent()).toContain('plusieurs vues');
+    expect(await page.locator('#avatar-create').isDisabled()).toBe(true);
+  });
+
   it('animates Pip and keeps a short click as a stage reaction, without native dragging', async () => {
     expect(await actor().getAttribute('data-activity')).toBe('entering');
     await settled();
@@ -94,11 +137,13 @@ describe('desktop frontend with real Chromium and mocked native IPC', () => {
 
   it('delegates a drag to the OS once, rather than moving Pip inside the page', async () => {
     await settled();
+    await hit().hover(); // Playwright waits for entrance layout to settle before the gesture.
     const before = await actor().evaluate((el) => el.style.transform);
     const box = await hit().boundingBox();
     if (!box) throw new Error('Pip has no hit rectangle');
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
+    await expect.poll(() => commands()).toContain('set_pointer_capture');
     await page.mouse.move(box.x + box.width / 2 + 3, box.y + box.height / 2);
     expect(await commands()).not.toContain('start_dragging');
     await page.mouse.move(box.x + box.width / 2 + 30, box.y + box.height / 2 - 20);
@@ -128,7 +173,7 @@ describe('desktop frontend with real Chromium and mocked native IPC', () => {
     await page.locator('[name="userName"]').fill('Tanguy');
     await page.locator('[name="scale"]').selectOption('1.25');
     await page.locator('[name="reduceMotion"]').selectOption('on');
-    await page.locator('button[type="submit"]').click();
+    await page.locator('#settings-form button[type="submit"]').click();
     await expect.poll(() => page.locator('#settings').isVisible()).toBe(false);
     await page.reload();
     await expect.poll(() => commands()).toContain('desktop_ready');

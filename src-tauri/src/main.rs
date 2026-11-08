@@ -15,7 +15,7 @@ use std::{
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, PhysicalPosition, State, WebviewWindow, WindowEvent,
+    AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, State, WebviewWindow, WindowEvent,
 };
 
 #[derive(Default)]
@@ -31,6 +31,7 @@ struct DesktopState {
     position: Arc<Mutex<Option<(SavedPosition, Instant)>>>,
     running: Arc<AtomicBool>,
     position_file: PathBuf,
+    menu_position: Arc<Mutex<Option<SavedPosition>>>,
 }
 
 fn report(result: tauri::Result<()>) {
@@ -47,6 +48,51 @@ fn show_companion(app: &AppHandle, settings: bool) -> tauri::Result<()> {
             window.set_ignore_cursor_events(false)?;
             window.set_focus()?;
             window.emit("desktop-settings", ())?;
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn set_launcher_open(
+    open: bool,
+    window: WebviewWindow,
+    state: State<'_, DesktopState>,
+) -> Result<(), String> {
+    let previous = *state.menu_position.lock().map_err(|e| e.to_string())?;
+    if open && previous.is_none() {
+        save_position(&state, true);
+        let origin = window.outer_position().map_err(|e| e.to_string())?;
+        *state.menu_position.lock().map_err(|e| e.to_string())? = Some(SavedPosition {
+            x: origin.x,
+            y: origin.y,
+        });
+        let scale = window.scale_factor().map_err(|e| e.to_string())?;
+        let monitor = window.current_monitor().map_err(|e| e.to_string())?;
+        let (width, height) = monitor
+            .as_ref()
+            .map(|m| {
+                let area = m.work_area();
+                (
+                    760.0_f64.min(f64::from(area.size.width) / scale),
+                    640.0_f64.min(f64::from(area.size.height) / scale),
+                )
+            })
+            .unwrap_or((760.0, 640.0));
+        window
+            .set_size(LogicalSize::new(width, height))
+            .map_err(|e| e.to_string())?;
+        window.center().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+    } else if !open {
+        if let Some(position) = previous {
+            window
+                .set_size(LogicalSize::new(360.0, 320.0))
+                .map_err(|e| e.to_string())?;
+            window
+                .set_position(PhysicalPosition::new(position.x, position.y))
+                .map_err(|e| e.to_string())?;
+            *state.menu_position.lock().map_err(|e| e.to_string())? = None;
         }
     }
     Ok(())
@@ -248,7 +294,8 @@ fn start_native_loop(window: WebviewWindow, state: DesktopState) {
                 };
                 // Never hold a state mutex across a Tauri call: its platform
                 // implementation may need to dispatch to the UI thread.
-                let ignore = if captured {
+                let menu_open = { state.menu_position.lock().unwrap().is_some() };
+                let ignore = if menu_open || captured {
                     false
                 } else if !ready {
                     true
@@ -283,6 +330,7 @@ fn main() {
         }))
         .invoke_handler(tauri::generate_handler![
             desktop_ready,
+            set_launcher_open,
             set_hit_regions,
             set_pointer_capture,
             start_dragging,
@@ -298,6 +346,7 @@ fn main() {
                 interaction: Arc::new(Mutex::new(Interaction::default())),
                 position: Arc::new(Mutex::new(None)),
                 running: Arc::new(AtomicBool::new(true)),
+                menu_position: Arc::new(Mutex::new(None)),
                 position_file: app.path().app_config_dir()?.join("window-position.json"),
             };
             app.manage(state.clone());
@@ -305,6 +354,8 @@ fn main() {
             #[cfg(windows)]
             window.set_ignore_cursor_events(true)?;
 
+            let library =
+                MenuItem::with_id(app, "library", "Mes compagnons · Créer", true, None::<&str>)?;
             let show = MenuItem::with_id(app, "show", "Afficher le compagnon", true, None::<&str>)?;
             let hide = MenuItem::with_id(app, "hide", "Masquer", true, None::<&str>)?;
             let settings = MenuItem::with_id(app, "settings", "Réglages", true, None::<&str>)?;
@@ -316,7 +367,7 @@ fn main() {
                 None::<&str>,
             )?;
             let quit = MenuItem::with_id(app, "quit", "Quitter Persona", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show, &hide, &settings, &reset, &quit])?;
+            let menu = Menu::with_items(app, &[&library, &show, &hide, &settings, &reset, &quit])?;
             // Keep a recovery route for a hidden/click-through window. Any tray
             // creation failure aborts setup instead of leaving an invisible app.
             TrayIconBuilder::with_id("persona")
@@ -325,6 +376,12 @@ fn main() {
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
+                    "library" => {
+                        report(show_companion(app, false));
+                        if let Some(window) = app.get_webview_window("main") {
+                            report(window.emit("desktop-menu", ()));
+                        }
+                    }
                     "show" => report(show_companion(app, false)),
                     "hide" => {
                         if let Some(window) = app.get_webview_window("main") {
@@ -367,6 +424,9 @@ fn main() {
                     report(event_window.hide());
                 }
                 WindowEvent::Moved(position) => {
+                    if event_state.menu_position.lock().unwrap().is_some() {
+                        return;
+                    }
                     *event_state.position.lock().unwrap() = Some((
                         SavedPosition {
                             x: position.x,

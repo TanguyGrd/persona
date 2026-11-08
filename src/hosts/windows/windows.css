@@ -13,3 +13,36 @@ button:hover { background: #def2e4; }
 :focus-visible { outline: 2px solid #256e50; outline-offset: 2px; }
 .hint { font-size: 12px; }
 #error { inset: auto 8px 8px; max-height: 150px; color: #842929; background: #fff3f3; user-select: text; }
+
+#launcher { position:fixed; inset:0; z-index:2147483647; box-sizing:border-box; padding:28px; overflow:auto; color:#ecf6f0; background:radial-gradient(ellipse at top left,#325345,#142c27 65%); border:1px solid #688778; border-radius:18px; }
+#launcher h1 { font-size:38px; letter-spacing:-1px; }
+#launcher h2 { margin:0 0 18px; font-size:19px; }
+.eyebrow { font-size:10px; letter-spacing:3px; color:#b8d4b2; }
+.intro { color:#c4d5c9; font-size:18px; margin:12px 0 24px; }
+.menu-grid { display:grid; grid-template-columns: minmax(160px, .8fr) minmax(240px, 1.4fr); gap:18px; margin-bottom:18px; }
+.menu-card { border:1px solid #78957c55; background:#ffffff0a; border-radius:16px; padding:18px; }
+#launcher form { margin:0; }
+#launcher label { display:grid; gap:6px; }
+#launcher input,#launcher textarea { width:100%; box-sizing:border-box; }
+#launcher textarea { font:inherit; resize:vertical; min-height:64px; border-radius:8px; padding:8px; }
+#avatar-drop { border:2px dashed #9ac4a4; padding:20px 12px; text-align:center; border-radius:12px; cursor:pointer; }
+#avatar-drop span,#avatar-status { font-size:12px; }
+#avatar-preview { display:flex; justify-content:center; min-height:20px; }
+#avatar-preview > * { position:relative; width:130px; height:130px; }
+#character-list { display:grid; gap:10px; }
+#character-list button { text-align:left; padding:14px; }
+#launcher button { border-color:#a8c894; }
+#launcher button:disabled { opacity:.5; cursor:default; }
+#avatar-status[data-error="1"] { color:#ffbab0; }
+@media(max-width:550px) { .menu-grid { grid-template-columns:1fr; } #launcher { padding:16px; } }
+
+#avatar-preview svg,#avatar-preview canvas,#avatar-preview img { width:100%; height:100%; object-fit:contain; display:block; }
+#launcher { padding:22px; }
+#launcher h1 { font-size:32px; }
+#launcher .intro { font-size:16px; margin:8px 0 16px; }
+#launcher button,#launcher input,#launcher textarea { color:#18372c; }
+#launcher textarea { min-height:50px; }
+#launcher .menu-card { padding:16px; }
+#launcher h2 { margin-bottom:12px; }
+#avatar-drop { padding:12px; }
+#avatar-preview > * { width:80px; height:80px; }

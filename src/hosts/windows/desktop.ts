@@ -2,6 +2,7 @@ import { Repository } from '../../core/settings/store';
 import type { Settings } from '../../core/settings/settings';
 import { Companion } from '../../stage/companion';
 import { DesktopStore } from './store';
+import { createLauncher, WELCOME_KEY } from './launcher';
 
 export interface DesktopBridge {
   invoke(command: string, args?: Record<string, unknown>): Promise<unknown>;
@@ -112,12 +113,16 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
     }) as EventListener, true, dragCleanups);
   };
 
+  const launcher = createLauncher(repo, bridge, async () => { await mount(); bindDrag(); });
+  cleanups.push(() => launcher.destroy());
   try {
     await repo.ensureDefaults();
     await mount();
     bindDrag();
     cleanups.push(await bridge.listen('desktop-show', () => { companion?.show(); }));
     cleanups.push(await bridge.listen('desktop-settings', () => { run(openSettings()); }));
+    cleanups.push(await bridge.listen('desktop-menu', () => { run(launcher.open()); }));
+    on(document.querySelector('#open-launcher')!, 'click', () => { panel.hidden = true; run(launcher.open()); });
     on(document.querySelector('#close-settings')!, 'click', () => { panel.hidden = true; });
     on(document.querySelector('#hide')!, 'click', () => {
       panel.hidden = true;
@@ -125,7 +130,7 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
     });
     on(document.querySelector('#quit')!, 'click', () => run(call('quit_app')));
     on(window, 'keydown', ((event: KeyboardEvent) => {
-      if (event.key === 'Escape') panel.hidden = true;
+      if (event.key === 'Escape') { panel.hidden = true; if (!launcher.panel.hidden) run(launcher.close()); }
     }) as EventListener);
     on(form, 'submit', (event) => {
       event.preventDefault();
@@ -158,7 +163,7 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
       toolbar.style.left = useLeft ? '-34px' : 'auto';
       toolbar.style.paddingLeft = useLeft ? '0' : '8px';
       toolbar.style.paddingRight = useLeft ? '8px' : '0';
-      const elements = [panel, error, ...shadow.querySelectorAll('.pc-hit, .pc-toolbar, .pc-bubble, .pc-restore')];
+      const elements = [launcher.panel, panel, error, ...shadow.querySelectorAll('.pc-hit, .pc-toolbar, .pc-bubble, .pc-restore')];
       const regions = hitRegions(elements, innerWidth, innerHeight);
       const serialized = JSON.stringify(regions);
       if (serialized === last) return;
@@ -167,6 +172,7 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
     };
     updateRegions();
     timer = setInterval(updateRegions, 50);
+    if (!localStorage.getItem(WELCOME_KEY)) await launcher.open();
     await call('desktop_ready');
   } catch (cause) {
     report(cause);
