@@ -49,6 +49,8 @@ export interface CompanionOptions {
   owner?: string;
   /** Optional host limit for a compact desktop scene; preserves the avatar aspect ratio. */
   maxAvatarWidth?: number;
+  /** Leave room for jumps and speech in a compact host. */
+  maxAvatarHeight?: number;
 }
 
 interface Segment { t0: number; t1: number; x0: number; x1: number; y0: number; y1: number; arc: number; ease: 'linear' | 'out' | 'in' | 'inout' }
@@ -233,6 +235,11 @@ export class Companion {
     if (limit !== undefined && Number.isFinite(limit) && limit > 0 && this.w > limit) {
       this.h = Math.max(1, Math.round(this.h * limit / this.w));
       this.w = Math.round(limit);
+    }
+    const heightLimit = this.opts.maxAvatarHeight;
+    if (heightLimit !== undefined && Number.isFinite(heightLimit) && heightLimit > 0 && this.h > heightLimit) {
+      this.w = Math.max(1, Math.round(this.w * heightLimit / this.h));
+      this.h = Math.round(heightLimit);
     }
     this.actor.style.width = `${this.w}px`;
     this.actor.style.height = `${this.h}px`;

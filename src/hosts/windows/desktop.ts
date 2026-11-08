@@ -78,7 +78,7 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
     settings = await repo.getSettings();
     const { profile, avatar } = await repo.getActiveCharacter(settings);
     companion = new Companion({
-      profile, avatar, settings, memory: await repo.getMemory(profile.id), owner: 'windows', maxAvatarWidth: 220,
+      profile, avatar, settings, memory: await repo.getMemory(profile.id), owner: 'windows', maxAvatarWidth: 220, maxAvatarHeight: 200,
       callbacks: {
         walkWorld: motion.world,
         walkOutside: motion.walk,

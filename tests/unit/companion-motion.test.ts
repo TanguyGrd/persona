@@ -110,3 +110,18 @@ describe('host-executed desktop walks', () => {
     expect(companion.x).toBe(x);
   });
 });
+
+
+it('keeps a tall avatar inside a compact host at the maximum size setting', () => {
+  companion = new Companion({
+    profile: BUILTIN_PROFILES[0]!,
+    avatar: { ...BUILTIN_AVATARS[0]!, kind:'svg', svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 300"><rect width="30" height="300"/></svg>', rigged:false, height:180 },
+    settings: { ...DEFAULT_SETTINGS, scale:2, chattiness:'silent' },
+    memory: { lastGreetingAt:0,recent:[] }, maxAvatarWidth:220, maxAvatarHeight:200,
+    callbacks: { saveMemory(){},savePosition(){},openSettings(){},placeName:()=>'' },
+  }).mount();
+  const actor=companion.shadow.querySelector<HTMLElement>('.pc-actor')!;
+  expect(Number.parseFloat(actor.style.height)).toBe(200);
+  expect(Number.parseFloat(actor.style.width)).toBeGreaterThan(0);
+  expect(Number.parseFloat(actor.style.width)).toBeLessThanOrEqual(220);
+});

@@ -23,7 +23,8 @@ les champs d’identité et les réglages souhaités sous forme de jauges.
 - L’atelier commence par les images. Le nom et l’univers sont des corrections facultatives dans
   **Aider à identifier · liens de référence**. Cinq liens HTTPS au maximum peuvent être conservés.
   Ils ne sont ni consultés ni considérés comme des sources vérifiées par ce mode instantané.
-- Taille, activité et paroles utilisent des jauges. L’activité et les paroles ont trois niveaux réels,
+- Taille, activité et paroles utilisent des jauges. La taille visible conserve les proportions et reste bornée
+  pour laisser de la place aux sauts et aux bulles dans la petite fenêtre. L’activité et les paroles ont trois niveaux réels,
   affichés avec leur libellé ; la jauge ne prétend pas fournir cent comportements distincts.
 - Un profil choisi explicitement pour Terry McGinnis / Batman Beyond est proposé dans les réglages
   d’un avatar importé. Il conserve avatar, références et mémoire. Ses répliques sont locales,
@@ -78,7 +79,7 @@ nécessaire avant de qualifier ces mouvements d’aussi fluides que la référen
 ## Résultats locaux
 
 - TypeScript et builds frontend Chrome/bureau : réussis.
-- 118 tests unitaires : réussis, dont la marche déléguée sans déplacer l’acteur hors de sa petite
+- 119 tests unitaires : réussis, dont la marche déléguée sans déplacer l’acteur hors de sa petite
   scène, les répliques exclusives d’une personnalité choisie et la conservation des liens non vérifiés.
 - 26 tests bureau : réussis (Chromium + pont simulé, contrôleur natif simulé, stockage).
 - `cargo check --target x86_64-pc-windows-msvc --tests --locked --features tauri/custom-protocol` :
