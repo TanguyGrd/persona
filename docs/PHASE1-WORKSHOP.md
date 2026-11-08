@@ -119,6 +119,7 @@ Tauri sous Windows et ne prouve ni les clics traversants, ni le glisser natif, n
 - `cargo check --manifest-path src-tauri/Cargo.toml --target x86_64-pc-windows-msvc
   --tests --locked --features tauri/custom-protocol -j 4` : réussi, avec ressources embarquées.
 - `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check` : réussi.
+- `npm run verify:package` : manifest et 12 fichiers référencés validés, puis échec au lancement du navigateur ; la validation complète du ZIP reste bloquée.
 - `npm run test:e2e` : échec du hook de démarrage, **15 tests non exécutés** ; le Chromium
   Playwright1243 manque, son téléchargement ayant été refusé par le réseau. Le Chromium système156
   n'a pas chargé l'extension lors d'essais séparés. Aucun succès d'intégration Chrome native revendiqué.
@@ -178,3 +179,20 @@ blocages ne se résout en fusionnant les branches ou en prétendant qu'un build 
 
 La prochaine phase pertinente est la recherche de personnage avec sources, ambiguïtés et correction
 manuelle, puis la préparation 2D. Ces travaux ne doivent pas bloquer le mode instantané local livré ici.
+
+
+## État GitHub après livraison
+
+La branche `feat/character-workshop-phase1` a été poussée. La commande `gh pr create` avec base
+`feat/desktop-avatar-menu` a été tentée, mais l'API a répondu `Forbidden`. **Aucune PR de phase 1
+n'a été créée.** La [description prête à publier](PHASE1-PR.md) et la
+[comparaison des branches](https://github.com/TanguyGrd/persona/compare/feat/desktop-avatar-menu...feat/character-workshop-phase1?expand=1)
+sont disponibles. Le domaine `api.github.com` doit être appliqué dans les paramètres réseau pour
+permettre une nouvelle tentative automatique, avec l'authentification existante.
+
+Le [workflow Windows déclenché par ce push](https://github.com/TanguyGrd/persona/actions/runs/42516036920)
+a échoué avant de démarrer un job. Annotation GitHub constatée : « The job was not started because
+your account is locked due to a billing issue. » Le workflow CI existant est aussi en échec immédiat.
+Il n'existe donc **aucun nouvel installeur Windows ni résultat de tests Windows** pour cette livraison.
+Le propriétaire du compte doit résoudre ce blocage GitHub Actions ou utiliser un poste Windows
+équipé pour compiler ; cela reste distinct des validations locales réussies ci-dessus.
