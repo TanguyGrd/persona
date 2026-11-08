@@ -370,6 +370,9 @@ export class Companion {
   private apply(d: Directive, forceSpeech = false) {
     if (this.destroyed) return;
     const now = this.now();
+    // A directive timer can run before the final animation frame. Sample the
+    // old path before replacing it so landing/walking never keeps a stale pose.
+    this.advance(now);
     this.directiveStart = now;
     const a = this.actor.dataset;
     const prevActivity = a.activity;
@@ -379,6 +382,7 @@ export class Companion {
     this.view.setClip(clipFor(d.activity, d.reaction));
     this.view.setMood(d.mood);
     this.segments = this.plan(d);
+    this.render();
 
     if (d.activity === 'hidden') {
       this.actor.hidden = true;
@@ -501,9 +505,9 @@ export class Companion {
   }
 
   /** Moves along the current path; returns true while there is motion left. */
-  private advance(): boolean {
+  private advance(now = this.now()): boolean {
     if (!this.segments.length) return false;
-    const t = this.now() - this.directiveStart;
+    const t = now - this.directiveStart;
     const seg = this.segments.find((s) => t < s.t1) ?? this.segments[this.segments.length - 1]!;
     const p = clamp((t - seg.t0) / Math.max(1, seg.t1 - seg.t0), 0, 1);
     const e = EASE[seg.ease](p);
