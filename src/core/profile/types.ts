@@ -43,6 +43,15 @@ export interface PhraseOverrides {
 
 export type ProfileSource = 'builtin' | 'manual' | 'imported' | 'generated';
 
+/** Instant preparation provenance; never claims visual analysis or public research. */
+export interface CharacterCreation {
+  mode: 'instant';
+  source: 'user';
+  preparedAt: number;
+  /** Includes the active view. Other views are references, not generated poses. */
+  referenceAvatarIds: string[];
+}
+
 export interface ProfileMeta {
   source: ProfileSource;
   createdAt: number;
@@ -55,6 +64,7 @@ export interface ProfileMeta {
   generator?: string;
   /** Credit / licence notes for the character itself. */
   credits?: string;
+  creation?: CharacterCreation;
 }
 
 export interface CharacterProfile {
@@ -62,6 +72,8 @@ export interface CharacterProfile {
   id: string;
   name: string;
   bio: string;
+  /** User-provided universe; not a verified research result. */
+  universe?: string;
   language: Language;
   tone: Tone;
   traits: Traits;

@@ -43,6 +43,8 @@ export interface CompanionOptions {
   startHidden?: boolean;
   /** Marks the host element (e.g. "extension") so a host can find its own instances. */
   owner?: string;
+  /** Optional host limit for a compact desktop scene; preserves the avatar aspect ratio. */
+  maxAvatarWidth?: number;
 }
 
 interface Segment { t0: number; t1: number; x0: number; x1: number; y0: number; y1: number; arc: number; ease: 'linear' | 'out' | 'in' | 'inout' }
@@ -223,6 +225,11 @@ export class Companion {
   private measure() {
     this.h = Math.round(this.avatar.height * this.settings.scale);
     this.w = Math.round(this.h * this.view.aspect);
+    const limit = this.opts.maxAvatarWidth;
+    if (limit !== undefined && Number.isFinite(limit) && limit > 0 && this.w > limit) {
+      this.h = Math.max(1, Math.round(this.h * limit / this.w));
+      this.w = Math.round(limit);
+    }
     this.actor.style.width = `${this.w}px`;
     this.actor.style.height = `${this.h}px`;
   }
@@ -544,8 +551,11 @@ export class Companion {
     this.on(win, 'keydown', activity, { passive: true });
     this.on(win, 'scroll', activity, { passive: true, capture: true });
     this.on(win, 'resize', () => {
+      // Paths belong to the old viewport. Keeping them would move the actor
+      // outside a compact host again on its next animation frame.
+      this.segments = [];
       this.x = clamp(this.x, this.world().minX, this.world().maxX);
-      this.y = Math.min(this.y, Math.max(0, this.vh - this.h));
+      this.y = clamp(this.y, 0, Math.max(0, this.vh - this.h));
       this.render();
     });
     const doc = this.host.ownerDocument;

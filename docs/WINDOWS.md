@@ -7,8 +7,9 @@ Pour lancer l'application de bureau, rendez-vous directement à la [section 2](#
 ## 1. Tester l'extension sur un PC Windows (aujourd'hui)
 
 Le guide Chrome ci-dessous utilise la branche historique `claude/nifty-brahmagupta-53buim`.
-Le MVP de bureau est développé sur la branche locale dédiée `feat/windows-companion-mvp`,
-à partir du même code. Utilisez le checkout contenant cette branche pour la section 2 ;
+Le MVP de bureau est développé sur `feat/windows-companion-mvp`, puis le menu sur
+`feat/desktop-avatar-menu`. L’atelier multi-images courant est sur `feat/character-workshop-phase1` :
+voir [son guide](PHASE1-WORKSHOP.md). Utilisez le checkout contenant la version choisie pour la section 2 ;
 ne remplacez pas votre branche de travail ni vos modifications locales.
 
 ### Étape 1 — Installer les outils (une seule fois)
@@ -205,10 +206,11 @@ Le comportement implémenté est le suivant, à valider sur votre PC avec la lis
 - Les réglages du MVP proposent le prénom utilisé dans les répliques, le personnage disponible,
   la taille, la fréquence d'activité, les répliques et la réduction des mouvements.
 
-L'interface conserve réglages, profils et mémoire des salutations dans le `localStorage` de la WebView,
-via le `Repository` existant. La position de la fenêtre est conservée séparément dans le répertoire de
+L’hôte initial conservait réglages, profils et mémoire dans le `localStorage` de la WebView.
+L’[atelier multi-images](PHASE1-WORKSHOP.md) les migre vers IndexedDB, via le `Repository` existant. La position de la fenêtre est conservée séparément dans le répertoire de
 configuration de l'application. Les données de l'extension Chrome restent distinctes : aucune
-synchronisation automatique, création d'avatar ou édition avancée de profil n'est ajoutée à ce MVP.
+synchronisation automatique n’est ajoutée. L’atelier de phase 1 ajoute la création locale d’avatar
+à partir d’images et le transfert manuel de packs vers Chrome ; le rigging avancé reste à développer.
 La commande de réinitialisation de position permet de récupérer une fenêtre déplacée hors écran.
 Les données de développement et celles de l'application empaquetée utilisent des origines WebView
 distinctes ; les réglages ne sont pas transférés automatiquement de l'une à l'autre.

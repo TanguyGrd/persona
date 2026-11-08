@@ -8,23 +8,32 @@
 </head>
 <body>
   <section id="launcher" aria-labelledby="launcher-title" hidden>
-    <header><div><span class="eyebrow">VOTRE PETIT MONDE</span><h1 id="launcher-title">Persona</h1></div><button id="launcher-close" type="button">Retour au bureau</button></header>
-    <p class="intro">Un compagnon qui vous ressemble.</p>
+    <header class="workshop-header"><div><span class="eyebrow">PERSONA · L’ATELIER</span><h1 id="launcher-title">Choisis ton personnage.<br>Donne-lui vie.</h1></div><button id="launcher-close" type="button">Retour au bureau</button></header>
+    <p class="intro">Une image pour commencer. Plusieurs pour garder tous ses détails.</p>
     <div class="menu-grid">
-      <section class="menu-card"><h2>Mes compagnons</h2><div id="character-list"></div><p class="hint">Choisissez un compagnon pour le retrouver sur votre bureau.</p></section>
-      <section class="menu-card"><h2>Créer mon compagnon</h2>
+      <aside class="menu-card library"><span class="step">VOTRE COLLECTION</span><h2>Mes compagnons</h2><div id="character-list"></div><p class="hint">Retrouvez votre compagnon sur le bureau, ou exportez-le vers Chrome.</p></aside>
+      <section class="menu-card creation-card"><div class="card-heading"><span class="step">01 — LES RÉFÉRENCES</span><span class="local-badge">Sur ce PC · sans compte</span></div>
         <form id="avatar-form">
-          <label>Son nom <input id="avatar-name" maxlength="40" required placeholder="Mon compagnon"></label>
-          <label>Sa personnalité <textarea id="avatar-description" maxlength="1000" placeholder="Curieux, calme, un peu espiègle…"></textarea></label>
-          <label id="avatar-drop" tabindex="0">Déposez votre image ici <span>ou cliquez pour choisir · PNG, JPEG, WebP, GIF, SVG · 8 Mo maximum</span><input id="avatar-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" hidden></label>
-          <div id="avatar-preview" aria-label="Aperçu du compagnon"></div>
-          <p id="avatar-status" role="status">Une image de face suffit pour les animations simples. Un PNG au fond transparent donne le meilleur résultat.</p>
-          <button id="avatar-create" type="submit" disabled>Créer et jouer</button>
+          <div id="avatar-drop" tabindex="0" role="button" aria-label="Importer des images">
+            <strong>Déposez vos images ici</strong><span>De face, de profil, de dos… Gardez jusqu’à 10 vues de votre personnage.</span>
+            <button id="avatar-browse" type="button">Choisir mes images</button><small>PNG, JPEG, WebP, GIF ou SVG · 8 Mo par image · 32 Mo au total</small>
+            <input id="avatar-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" multiple hidden>
+          </div>
+          <div id="reference-list" aria-label="Images de référence"></div>
+          <div class="creation-bottom">
+            <section class="identity-fields"><span class="step">02 — SON IDENTITÉ</span>
+              <label>Son nom <span class="optional">facultatif</span><input id="avatar-name" maxlength="40" placeholder="Mon compagnon"></label>
+              <label>Son univers <span class="optional">facultatif</span><input id="avatar-universe" maxlength="120" placeholder="Votre création, un jeu, une histoire…"></label>
+              <label>Sa personnalité <span class="optional">facultatif</span><textarea id="avatar-description" maxlength="600" placeholder="Calme, curieux, un peu espiègle…"></textarea></label>
+            </section>
+            <section class="preview-card"><span class="step">03 — PREMIER APERÇU</span><div id="avatar-preview" aria-label="Aperçu du compagnon"></div><p id="profile-preview" class="hint">Choisissez une vue principale : c’est elle qui apparaîtra sur votre bureau.</p></section>
+          </div>
+          <p id="avatar-status" role="status">Mode instantané : l’image principale bouge en entier. Les autres vues sont conservées comme références ; aucune fusion ni articulation IA n’est effectuée.</p>
+          <div class="create-actions"><span class="hint">Vos images restent privées, sur cet appareil.</span><button id="avatar-create" type="submit" disabled>Créer mon compagnon →</button></div>
         </form>
-        <p class="hint">Vos images restent sur ce PC. Les mouvements simples sont locaux. La génération IA de poses et l’assemblage de plusieurs vues ne sont pas encore disponibles.</p>
       </section>
     </div>
-    <footer><span class="hint">À votre rythme, sur votre bureau.</span><button id="launcher-quit" type="button">Quitter Persona</button></footer>
+    <footer><span class="hint">Le mode instantané est gratuit. La préparation 2D avancée viendra ensuite.</span><button id="launcher-quit" type="button">Quitter Persona</button></footer>
   </section>
   <section id="settings" aria-labelledby="settings-title" hidden>
     <header><h1 id="settings-title">Persona</h1><button id="close-settings" type="button" aria-label="Fermer les réglages">×</button></header>

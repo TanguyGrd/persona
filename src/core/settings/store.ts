@@ -43,6 +43,8 @@ export interface ActiveCharacter {
  * Avatars live under their own key so large images are not rewritten with every profile edit.
  */
 export class Repository {
+  private settingsQueue: Promise<void> = Promise.resolve();
+
   constructor(readonly store: KeyValueStore) {}
 
   async getSettings(): Promise<Settings> {
@@ -50,9 +52,17 @@ export class Repository {
   }
 
   async saveSettings(patch: Partial<Settings>): Promise<Settings> {
-    const next = normalizeSettings({ ...(await this.getSettings()), ...patch });
-    await this.store.set(KEYS.settings, next);
-    return next;
+    const requested = structuredClone(patch);
+    // Position updates and user actions can arrive together. Queue the complete
+    // read/merge/write operation so one patch cannot restore an older profile.
+    const operation = this.settingsQueue.then(async () => {
+      const next = normalizeSettings({ ...(await this.getSettings()), ...requested });
+      await this.store.set(KEYS.settings, next);
+      return next;
+    });
+    // A failed write rejects its caller without blocking later valid updates.
+    this.settingsQueue = operation.then(() => {}, () => {});
+    return operation;
   }
 
   async ensureDefaults(): Promise<void> {
@@ -90,8 +100,11 @@ export class Repository {
     if (!p) return;
     delete all[id];
     await this.store.set(KEYS.profiles, all);
-    const stillUsed = Object.values(all).some((o) => o.avatarId === p.avatarId);
-    if (!stillUsed && !p.avatarId.startsWith('builtin:')) await this.store.remove(KEYS.avatar(p.avatarId));
+    const removedAssets = new Set([p.avatarId, ...(p.meta.creation?.referenceAvatarIds ?? [])]);
+    const retainedAssets = new Set(Object.values(all).flatMap((o) => [o.avatarId, ...(o.meta.creation?.referenceAvatarIds ?? [])]));
+    for (const avatarId of removedAssets) {
+      if (!retainedAssets.has(avatarId) && !avatarId.startsWith('builtin:')) await this.store.remove(KEYS.avatar(avatarId));
+    }
     const s = await this.getSettings();
     if (s.activeProfileId === id) await this.saveSettings({ activeProfileId: DEFAULT_SETTINGS.activeProfileId });
   }

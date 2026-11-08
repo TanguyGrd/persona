@@ -1,7 +1,7 @@
 import { Repository } from '../../core/settings/store';
 import type { Settings } from '../../core/settings/settings';
 import { Companion } from '../../stage/companion';
-import { DesktopStore } from './store';
+import { IndexedDesktopStore } from './store';
 import { createLauncher, WELCOME_KEY } from './launcher';
 
 export interface DesktopBridge {
@@ -35,7 +35,8 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
   };
   const call = (command: string, args?: Record<string, unknown>) => bridge.invoke(command, args);
   const run = (operation: Promise<unknown>) => { void operation.catch(report); };
-  const repo = new Repository(new DesktopStore(localStorage));
+  const store = new IndexedDesktopStore(localStorage);
+  const repo = new Repository(store);
   let companion: Companion | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
   let settings: Settings;
@@ -64,7 +65,7 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
     settings = await repo.getSettings();
     const { profile, avatar } = await repo.getActiveCharacter(settings);
     companion = new Companion({
-      profile, avatar, settings, memory: await repo.getMemory(profile.id), owner: 'windows',
+      profile, avatar, settings, memory: await repo.getMemory(profile.id), owner: 'windows', maxAvatarWidth: 220,
       callbacks: {
         saveMemory: (memory) => run(repo.saveMemory(profile.id, memory)),
         savePosition: (position) => run(repo.saveSettings({ position })),
@@ -116,6 +117,7 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
   const launcher = createLauncher(repo, bridge, async () => { await mount(); bindDrag(); });
   cleanups.push(() => launcher.destroy());
   try {
+    await store.ready();
     await repo.ensureDefaults();
     await mount();
     bindDrag();
@@ -158,7 +160,9 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
       const toolbar = shadow.querySelector<HTMLElement>('.pc-toolbar')!;
       // The shared stage can walk to either viewport edge. Keep its toolbar
       // inside this much smaller desktop scene without changing Chrome layout.
-      const useLeft = actor.getBoundingClientRect().right > innerWidth - 40;
+      const actorRect = actor.getBoundingClientRect();
+      const useLeft = actorRect.right > innerWidth - 40;
+      toolbar.style.top = `${Math.min(-6, actorRect.height - toolbar.offsetHeight - 4)}px`;
       toolbar.style.right = useLeft ? 'auto' : '-34px';
       toolbar.style.left = useLeft ? '-34px' : 'auto';
       toolbar.style.paddingLeft = useLeft ? '0' : '8px';
@@ -185,5 +189,6 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
     release();
     for (const cleanup of [...dragCleanups, ...cleanups]) cleanup();
     companion?.destroy();
+    store.close();
   };
 }

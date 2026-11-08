@@ -97,6 +97,16 @@ export function normalizeProfile(input: unknown, now = Date.now()): ValidationRe
   const credits = str(m.credits, 500);
   if (credits) meta.credits = credits;
 
+  if (isObj(m.creation) && m.creation.mode === 'instant' && m.creation.source === 'user') {
+    const refs = Array.isArray(m.creation.referenceAvatarIds)
+      ? [...new Set(m.creation.referenceAvatarIds.map((id) => str(id, 80)).filter((id): id is string => !!id))].slice(0, 10)
+      : [];
+    if (refs.length) meta.creation = {
+      mode: 'instant', source: 'user', referenceAvatarIds: refs,
+      preparedAt: typeof m.creation.preparedAt === 'number' && Number.isFinite(m.creation.preparedAt) ? m.creation.preparedAt : now,
+    };
+  }
+
   const value: CharacterProfile = {
     schemaVersion: 1,
     id: str(src.id, 80) || newId('profile'),
@@ -110,5 +120,7 @@ export function normalizeProfile(input: unknown, now = Date.now()): ValidationRe
     avatarId: str(src.avatarId, 80) || 'builtin:pip',
     meta,
   };
+  const universe = str(src.universe, 120);
+  if (universe) value.universe = universe;
   return { value, warnings };
 }

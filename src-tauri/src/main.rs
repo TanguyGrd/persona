@@ -74,11 +74,11 @@ fn set_launcher_open(
             .map(|m| {
                 let area = m.work_area();
                 (
-                    760.0_f64.min(f64::from(area.size.width) / scale),
-                    640.0_f64.min(f64::from(area.size.height) / scale),
+                    980.0_f64.min(f64::from(area.size.width) / scale),
+                    760.0_f64.min(f64::from(area.size.height) / scale),
                 )
             })
-            .unwrap_or((760.0, 640.0));
+            .unwrap_or((980.0, 760.0));
         window
             .set_size(LogicalSize::new(width, height))
             .map_err(|e| e.to_string())?;

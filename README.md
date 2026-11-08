@@ -127,5 +127,7 @@ Free : compagnon et animations (extension et premier hôte Windows). Ensuite : t
 profils enrichis par IA ; Premium : voix, IA locale, personnalisation avancée. Aucun paiement n'est
 implémenté — les paliers sont seulement étiquetés dans `src/core/agent/agent.ts`.
 
-Le menu de création Windows (import d’image local, génération IA encore à connecter) est décrit dans
-[DESKTOP-CREATION.md](docs/DESKTOP-CREATION.md).
+Le parcours Windows accepte 1 à 10 images de référence et conserve un mode instantané local ;
+la génération IA et le rigging restent à connecter. Voir [la phase 1 de l’atelier](docs/PHASE1-WORKSHOP.md)
+pour l’intégration, les limites et les vérifications Windows, et [le menu initial](docs/DESKTOP-CREATION.md)
+pour son historique.

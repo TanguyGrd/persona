@@ -5,12 +5,14 @@ import { createServer, type Server } from 'node:http';
 import { cp, mkdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { extname, join } from 'node:path';
+import type { ImportResult } from '../../src/core/avatar/importer';
 
 interface Call { command: string; args?: Record<string, unknown> }
 interface Harness {
   calls: Call[];
   emit(event: string): void;
   stop: () => void;
+  importPack(pack: unknown): Promise<ImportResult>;
 }
 declare global { interface Window { desktopHarness: Harness } }
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -28,8 +30,10 @@ beforeAll(async () => {
     absWorkingDir: root,
     stdin: {
       contents: `import {startDesktop} from './src/hosts/windows/desktop';
+        import {importAvatarFiles} from './src/core/avatar/importer';
         const handlers=new Map();
-        window.desktopHarness={calls:[],emit(event){handlers.get(event)?.();},stop(){}};
+        window.desktopHarness={calls:[],emit(event){handlers.get(event)?.();},stop(){},
+          importPack(pack){return importAvatarFiles([{name:'companion.persona.json',mime:'application/json',size:JSON.stringify(pack).length,text:JSON.stringify(pack)}],{imageSize:async()=>({w:128,h:128})});}};
         const bridge={
           async invoke(command,args){window.desktopHarness.calls.push({command,args});},
           async listen(event,handler){handlers.set(event,handler);return ()=>handlers.delete(event);}
@@ -76,6 +80,33 @@ const hit = () => page.locator('persona-companion .pc-hit');
 const actor = () => page.locator('persona-companion .pc-actor');
 const commands = () => page.evaluate(() => window.desktopHarness.calls.map((call) => call.command));
 const emit = (event: string) => page.evaluate((e) => window.desktopHarness.emit(e), event);
+async function stored<T>(key: string): Promise<T | undefined> {
+  return page.evaluate((name) => new Promise((resolve, reject) => {
+    const request = indexedDB.open('persona-desktop');
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction('kv', 'readonly');
+      const read = transaction.objectStore('kv').get(name);
+      read.onsuccess = () => resolve(read.result);
+      read.onerror = () => reject(read.error);
+      transaction.oncomplete = () => db.close();
+    };
+  }), key) as Promise<T | undefined>;
+}
+async function referenceFiles() {
+  return [
+    { name: 'face.png', mimeType: 'image/png', buffer: await readFile(join(root, 'assets/icons/icon-128.png')) },
+    { name: 'profil.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 120"><ellipse cx="40" cy="70" rx="24" ry="40" fill="#e7b45b"/><circle cx="51" cy="40" r="17" fill="#ffe6ab"/><circle cx="57" cy="37" r="3" fill="#213c32"/></svg>') },
+    { name: 'dos.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 120"><rect x="18" y="40" width="44" height="68" rx="20" fill="#b59adc"/><circle cx="40" cy="28" r="22" fill="#725aa2"/></svg>') },
+  ];
+}
+async function openWorkshop() {
+  await page.setViewportSize({ width: 980, height: 760 });
+  await emit('desktop-menu');
+  await expect.poll(() => page.locator('#launcher').isVisible()).toBe(true);
+}
+
 async function settled() {
   await expect.poll(() => actor().getAttribute('data-activity'), { timeout: 6000 }).not.toBe('entering');
   await hit().waitFor({ state: 'visible' });
@@ -97,33 +128,144 @@ describe('desktop frontend with real Chromium and mocked native IPC', () => {
     } finally { await fresh.close(); }
   });
 
-  it('creates a companion from an image and keeps it after restart', async () => {
-    await page.setViewportSize({ width: 760, height: 640 });
-    await emit('desktop-menu');
-    await page.locator('#avatar-file').setInputFiles({ name: 'mousse.png', mimeType: 'image/png', buffer: await readFile(join(root, 'assets/icons/icon-128.png')) });
-    await expect.poll(() => page.locator('#avatar-create').isEnabled()).toBe(true);
-    await page.locator('#avatar-name').fill('Mousse');
-    await page.locator('#avatar-description').fill('Calme et curieux');
-    await page.screenshot({ path: join(root, 'test-results/persona-avatar-menu.png') });
-    await page.locator('#avatar-create').click();
-    await expect.poll(() => page.locator('#launcher').isVisible()).toBe(false);
-    await page.reload();
-    await expect.poll(() => commands()).toContain('desktop_ready');
-    expect(await hit().getAttribute('aria-label')).toContain('Mousse');
-    await emit('desktop-menu');
-    expect(await page.getByRole('button', { name: '▶ Mousse' }).count()).toBe(1);
+  it('creates from three references, selects a main view and keeps the full profile after restart', async () => {
+    await page.context().close();
+    const recording = await browser.newContext({
+      viewport: { width: 980, height: 760 }, locale: 'fr-FR',
+      ...(process.env.PERSONA_RECORD_DEMO ? { recordVideo: { dir: join(root, 'test-results', 'phase1-demo'), size: { width: 980, height: 760 } } } : {}),
+    });
+    page = await recording.newPage();
+    const video = page.video();
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    // Presentation holds are opt-in for the demo; assertions establish test readiness.
+    const hold = async () => { if (process.env.PERSONA_RECORD_DEMO) await page.waitForTimeout(1200); };
+    try {
+      await page.goto(url);
+      await expect.poll(() => page.locator('#launcher').isVisible()).toBe(true);
+      await hold();
+      await page.locator('#avatar-file').setInputFiles(await referenceFiles());
+      await expect.poll(() => page.locator('#reference-list .reference').count()).toBe(3);
+      await page.locator('#reference-list .reference').nth(1).getByRole('button', { name: 'Choisir cette vue' }).click();
+      await expect.poll(() => page.locator('#reference-list .reference').nth(1).getAttribute('data-primary')).toBe('1');
+      await page.locator('#avatar-name').fill('Mousse');
+      await page.locator('#avatar-universe').fill('Le jardin des lucioles');
+      await page.locator('#avatar-description').fill('Calme et curieux');
+      await page.screenshot({ path: join(root, 'test-results', 'phase1-workshop-ready.png') });
+      await page.locator('#launcher').evaluate((element) => { element.scrollTop = 0; });
+      await page.screenshot({ path: join(root, 'test-results', 'phase1-workshop.png') });
+      await hold();
+      await page.locator('#avatar-create').click();
+      await expect.poll(() => page.locator('#launcher').isVisible()).toBe(false);
+      const settings = await stored<{ activeProfileId: string }>('settings');
+      const profiles = await stored<Record<string, { name: string; universe?: string; avatarId: string; meta: { creation?: { referenceAvatarIds: string[] } } }>>('profiles');
+      const profile = profiles?.[settings!.activeProfileId];
+      expect(profile?.name).toBe('Mousse');
+      expect(profile?.universe).toBe('Le jardin des lucioles');
+      const references = profile?.meta.creation?.referenceAvatarIds ?? [];
+      expect(references).toHaveLength(3);
+      expect(profile?.avatarId).toBe(references[1]);
+      if (process.env.PERSONA_RECORD_DEMO) { await settled(); await hold(); }
+      for (const id of references) expect(await stored(`avatar:${id}`)).toBeDefined();
+      await page.reload();
+      await expect.poll(() => commands()).toContain('desktop_ready');
+      expect(await hit().getAttribute('aria-label')).toContain('Mousse');
+      await emit('desktop-menu');
+      await expect.poll(() => page.getByRole('button', { name: '▶ Mousse' }).count()).toBe(1);
+      const downloadReady = page.waitForEvent('download');
+      await page.locator('#character-list .character-actions').filter({ has: page.getByRole('button', { name: '▶ Mousse' }) }).getByRole('button', { name: /Exporter/ }).click();
+      const download = await downloadReady;
+      const path = await download.path();
+      if (!path) throw new Error('Exported pack download has no local path');
+      const pack = JSON.parse(await readFile(path, 'utf8'));
+      expect(pack.format).toBe('persona-pack');
+      expect(pack.profile.universe).toBe('Le jardin des lucioles');
+      const imported = await page.evaluate((value) => window.desktopHarness.importPack(value), pack);
+      expect(imported.profile?.name).toBe('Mousse');
+      expect(imported.references).toHaveLength(2);
+      expect(imported.profile?.avatarId).toBe(imported.avatar.id);
+      expect(imported.profile?.meta.creation?.referenceAvatarIds).toHaveLength(3);
+      expect(await page.locator('#error').isVisible()).toBe(false);
+      expect(errors).toEqual([]);
+    } finally {
+      await recording.close();
+      if (video) await video.saveAs(join(root, 'test-results', 'phase1-demo.webm'));
+    }
   });
 
-  it('rejects multiple views instead of pretending to generate them with AI', async () => {
-    await emit('desktop-menu');
-    await page.locator('#avatar-drop').evaluate((el) => {
+  it('allows an unnamed companion and removes an unneeded reference before saving', async () => {
+    await openWorkshop();
+    await page.locator('#avatar-file').setInputFiles(await referenceFiles());
+    await expect.poll(() => page.locator('#reference-list .reference').count()).toBe(3);
+    await page.getByRole('button', { name: 'Retirer profil.svg', exact: true }).click();
+    expect(await page.locator('#reference-list .reference').count()).toBe(2);
+    await page.locator('#avatar-name').fill('');
+    await page.locator('#avatar-create').click();
+    await expect.poll(() => page.locator('#launcher').isVisible()).toBe(false);
+    const settings = await stored<{ activeProfileId: string }>('settings');
+    const profiles = await stored<Record<string, { name: string; meta: { creation?: { referenceAvatarIds: string[] } } }>>('profiles');
+    expect(profiles?.[settings!.activeProfileId]?.name).toBe('Compagnon');
+    expect(profiles?.[settings!.activeProfileId]?.meta.creation?.referenceAvatarIds).toHaveLength(2);
+  });
+
+  it('accepts a valid dropped batch and rejects too many images without losing the draft', async () => {
+    await openWorkshop();
+    await page.locator('#avatar-drop').evaluate((element) => {
       const data = new DataTransfer();
-      data.items.add(new File(['a'], 'face.png', { type: 'image/png' }));
-      data.items.add(new File(['b'], 'profil.png', { type: 'image/png' }));
-      el.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: data }));
+      data.items.add(new File(['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="green"/></svg>'], 'face.svg', { type: 'image/svg+xml' }));
+      element.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: data }));
     });
-    expect(await page.locator('#avatar-status').textContent()).toContain('plusieurs vues');
-    expect(await page.locator('#avatar-create').isDisabled()).toBe(true);
+    await expect.poll(() => page.locator('#reference-list .reference').count()).toBe(1);
+    const files = await referenceFiles();
+    await page.locator('#avatar-file').setInputFiles(Array.from({ length: 11 }, (_, index) => ({ ...files[0]!, name: `reference-${index}.png` })));
+    await expect.poll(() => page.locator('#avatar-status').getAttribute('data-error')).toBe('1');
+    expect(await page.locator('#reference-list .reference').count()).toBe(1);
+    expect(await page.locator('#avatar-create').isEnabled()).toBe(true);
+  });
+
+  it('does not replace a valid draft when one image in the new batch is invalid', async () => {
+    await openWorkshop();
+    const files = await referenceFiles();
+    await page.locator('#avatar-file').setInputFiles([files[0]!]);
+    await expect.poll(() => page.locator('#reference-list .reference').count()).toBe(1);
+    await page.locator('#avatar-file').setInputFiles([files[1]!, { name: 'broken.png', mimeType: 'image/png', buffer: Buffer.from('not a real image') }]);
+    await expect.poll(() => page.locator('#avatar-status').getAttribute('data-error')).toBe('1');
+    expect(await page.locator('#reference-list .reference').count()).toBe(1);
+    expect(await page.locator('#reference-list').textContent()).toContain('face.png');
+    expect(await page.locator('#avatar-create').isEnabled()).toBe(true);
+  });
+
+  it('fits an extremely wide imported avatar inside the small desktop scene without cropping the saved image', async () => {
+    await openWorkshop();
+    await page.locator('#avatar-file').setInputFiles({
+      name: 'wide.svg', mimeType: 'image/svg+xml',
+      buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 100"><rect width="2000" height="100" rx="25" fill="#a5d592"/></svg>'),
+    });
+    await expect.poll(() => page.locator('#avatar-create').isEnabled()).toBe(true);
+    await page.locator('#avatar-create').click();
+    await expect.poll(() => page.locator('#launcher').isVisible()).toBe(false);
+    // IPC is mocked, so mimic the native return to the companion's small window.
+    await page.setViewportSize({ width: 360, height: 320 });
+    await settled();
+    const bounds = await hit().boundingBox();
+    if (!bounds) throw new Error('Wide avatar has no hit rectangle');
+    expect(bounds.width).toBeGreaterThan(0);
+    expect(bounds.width).toBeLessThanOrEqual(220);
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(360);
+    expect(bounds.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(320);
+    await hit().hover();
+    const actions = page.locator('persona-companion .pc-toolbar button');
+    expect(await actions.count()).toBe(3);
+    await expect.poll(() => actions.evaluateAll((elements) => elements.every((element) => {
+      const rectangle = element.getBoundingClientRect();
+      return rectangle.left >= 0 && rectangle.right <= innerWidth && rectangle.top >= 0 && rectangle.bottom <= innerHeight;
+    }))).toBe(true);
+    const settings = await stored<{ activeProfileId: string }>('settings');
+    const profiles = await stored<Record<string, { avatarId: string }>>('profiles');
+    const saved = await stored<{ svg: string }>(`avatar:${profiles![settings!.activeProfileId]!.avatarId}`);
+    expect(saved?.svg).toContain('2000 100');
   });
 
   it('animates Pip and keeps a short click as a stage reaction, without native dragging', async () => {
@@ -187,15 +329,19 @@ describe('desktop frontend with real Chromium and mocked native IPC', () => {
     expect(errors).toEqual([]);
   });
 
-  it('exposes corrupt persisted state and requests a visible native window instead of silently booting', async () => {
-    await page.evaluate(() => localStorage.setItem('persona:desktop:settings', '{corrupted'));
-    await page.reload();
-    await expect.poll(() => page.locator('#error').isVisible()).toBe(true);
-    expect(await page.locator('#error').textContent()).toContain('Persona');
-    await expect.poll(() => commands()).toContain('desktop_ready');
-    expect(await page.locator('persona-companion').count()).toBe(0);
-    const regions = await page.evaluate(() => window.desktopHarness.calls.find((call) => call.command === 'set_hit_regions')?.args?.regions);
-    expect(regions).toEqual([{ x: 0, y: 0, width: 360, height: 320 }]);
+  it('exposes corrupt legacy state on initial migration and requests a visible native window', async () => {
+    const fresh = await browser.newContext({ viewport: { width: 360, height: 320 } });
+    try {
+      await fresh.addInitScript(() => localStorage.setItem('persona:desktop:settings', '{corrupted'));
+      const broken = await fresh.newPage();
+      await broken.goto(url);
+      await expect.poll(() => broken.locator('#error').isVisible()).toBe(true);
+      expect(await broken.locator('#error').textContent()).toContain('Persona');
+      await expect.poll(() => broken.evaluate(() => window.desktopHarness.calls.map((call) => call.command))).toContain('desktop_ready');
+      expect(await broken.locator('persona-companion').count()).toBe(0);
+      const regions = await broken.evaluate(() => window.desktopHarness.calls.find((call) => call.command === 'set_hit_regions')?.args?.regions);
+      expect(regions).toEqual([{ x: 0, y: 0, width: 360, height: 320 }]);
+    } finally { await fresh.close(); }
   });
 
   it('keeps all toolbar actions inside the small window at the right edge', async () => {

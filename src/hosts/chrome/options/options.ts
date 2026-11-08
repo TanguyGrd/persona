@@ -1,8 +1,10 @@
+import { replacePrimaryAvatar } from '../../../core/profile/avatar';
+import { exportCompanionPack } from '../../../core/creation/character';
 import { CachedProfileGenerator, LocalProfileGenerator } from '../../../core/profile/generator';
 import { composeLine } from '../../../core/profile/speech';
 import { newId, normalizeProfile } from '../../../core/profile/validate';
 import { ENTRANCES, LANGUAGES, SPEECH_KINDS, TIME_SLOTS, TONES, type CharacterProfile, type Language, type PhraseOverrides, type SpeechKind } from '../../../core/profile/types';
-import { exportPack, importAvatarFiles, fileKind, type ImportFile } from '../../../core/avatar/importer';
+import { importAvatarFiles, fileKind, type ImportFile } from '../../../core/avatar/importer';
 import type { AvatarAsset } from '../../../core/avatar/types';
 import { DEFAULT_SETTINGS, normalizeHost, type Settings } from '../../../core/settings/settings';
 import { dataUrlToBlob } from '../../../stage/avatarView';
@@ -78,7 +80,7 @@ async function renderList() {
           void renderList();
           if (avatar) openEditor(copy, avatar);
         } }, 'Dupliquer'),
-        avatar ? h('button', { 'data-action': 'export', onclick: () => download(`${p.name.replace(/[^\w-]+/g, '_')}.persona.json`, exportPack(p, avatar)) }, 'Exporter') : null,
+        avatar ? h('button', { 'data-action': 'export', onclick: async () => { try { download(`${p.name.replace(/[^\w-]+/g, '_')}.persona.json`, await exportCompanionPack(repo, p.id)); } catch (e) { toast((e as Error).message); } } }, 'Exporter') : null,
         builtin ? null : h('button', { class: 'danger', 'data-action': 'delete', onclick: async () => {
           if (!confirm(`Supprimer ${p.name} ?`)) return;
           await repo.deleteProfile(p.id);
@@ -164,7 +166,7 @@ function openEditor(source: CharacterProfile, sourceAvatar: AvatarAsset, opts: {
     }
     const traitVal = (k: string) => Number((document.getElementById(`ed-${k}`) as HTMLInputElement).value) / 100;
     return normalizeProfile({
-      ...p,
+      ...replacePrimaryAvatar(p, avatar.id),
       name: name.value,
       bio: bio.value,
       language: language.value,
@@ -270,6 +272,7 @@ function renderImport() {
       const r = await importAvatarFiles(await readFiles(file.files), importDeps);
       if (r.profile) {
         await repo.saveAvatar(r.avatar);
+        for (const reference of r.references ?? []) await repo.saveAvatar(reference);
         await repo.saveProfile(r.profile);
         toast(`Pack importé : ${r.profile.name}.`);
         out.replaceChildren(...r.warnings.map((w) => h('p', { class: 'muted' }, w)));
