@@ -3,6 +3,15 @@
 Branche : `feat/desktop-chat-and-media`, à partir de la bêta 0.2 existante.
 Pas de fusion, de déploiement ni de release publique.
 
+[Télécharger et installer la bêta Windows 0.3.0](INSTALLER-WINDOWS.md).
+
+Validation du commit `fed2f0a` : 119 tests unitaires, 34 tests bureau, 7 tests Rust et
+15 tests Chrome E2E. Les workflows
+[Windows](https://github.com/TanguyGrd/persona/actions/runs/42690431986) et
+[Chrome/Linux](https://github.com/TanguyGrd/persona/actions/runs/42690432065) ont réussi,
+y compris la génération de l’installeur NSIS. Les essais interactifs natifs ci-dessous
+restent à effectuer.
+
 ## Communiquer avec le compagnon
 
 Cliquez brièvement sur le personnage, ou utilisez le bouton de conversation au survol.
@@ -51,7 +60,8 @@ VLC ou Spotify sur un PC Windows n’a encore été effectué dans cet environne
 Une image de ville avec un personnage au milieu s’affiche comme une image de ville.
 Il faut un personnage détouré avec canal alpha, par exemple en PNG ou WebP. Enregistrer
 une image opaque en PNG ne supprime pas le décor. Un damier dans l’aperçu aide à distinguer
-les zones transparentes. Aucun détourage IA n’est effectué.
+les zones transparentes. Recadrez aussi l’image autour du personnage pour qu’il occupe
+bien son cadre. Aucun détourage IA n’est effectué.
 
 Une photo isolée n’offre pas de poses de jambes. Pour une animation déjà préparée :
 
@@ -66,6 +76,8 @@ Le moteur et les formats restent ceux de `src/core` et `src/stage`. Voir
 2048 indices par clip, images 8192 pixels par côté / 16 mégapixels, 8 Mio par image,
 48 Mio par JSON de pack. Les dimensions réelles et les clips des packs sont vérifiés
 avant d’enregistrer ou d’afficher les assets. L’import ne remplace pas un profil existant.
+Pour Aseprite/TexturePacker, exportez sans rotation des frames et sans découpage automatique
+des marges (trim), qui ne sont pas reconstruits par le moteur actuel.
 
 Cela ne fabrique pas un cycle réaliste pour Terry à partir d’une seule image. La préparation
 automatique (détourage, séparation des parties, création des poses et vérification visuelle)

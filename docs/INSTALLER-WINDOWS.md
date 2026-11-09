@@ -1,10 +1,10 @@
 # Installer Persona sur Windows
 
-## Bêta 0.2.0 — déplacements et atelier
+## Bêta 0.3.0 — bulle de saisie, pause média et animations
 
-[Télécharger le ZIP de l’installeur Windows 0.2.0](https://github.com/TanguyGrd/persona/actions/runs/42529343181/artifacts/13636613208).
+[Télécharger le ZIP de l’installeur Windows 0.3.0](https://github.com/TanguyGrd/persona/actions/runs/42690431986/artifacts/13708075673).
 Connectez-vous à GitHub si demandé. Sinon ouvrez le
-[build Windows réussi](https://github.com/TanguyGrd/persona/actions/runs/42529343181), puis
+[build Windows réussi](https://github.com/TanguyGrd/persona/actions/runs/42690431986), puis
 **Artifacts → persona-windows-unsigned**.
 
 1. Quittez l’ancienne Persona depuis son icône près de l’horloge → **Quitter Persona**.
@@ -16,6 +16,19 @@ L’installeur peut devoir télécharger WebView2 si ce composant Windows est ab
 Cette bêta n’est pas signée : Windows peut indiquer un éditeur inconnu.
 
 ## Essayer les changements
+
+- Cliquez brièvement sur le personnage : une bulle avec champ de saisie apparaît.
+  Entrée envoie ; Échap ou × ferme. Un glissement déclenche le déplacement natif.
+- Écrivez **Mets la vidéo en pause** ou utilisez le bouton ⏸. La commande passe par le média
+  sélectionné par Windows. La réponse distingue un succès confirmé, un refus, l’absence
+  de lecteur et une demande non confirmée. **Essai sur un vrai lecteur Windows encore à faire.**
+- La bulle affiche **IA non connectée** : ce sont des commandes locales, pas encore une
+  conversation libre. Une demande Discord explique que l’appel et l’envoi ne sont pas disponibles.
+- Pour une animation déjà préparée, ouvrez **Mes compagnons · Créer → J’ai déjà une animation
+  ou un pack Persona**, puis importez ensemble la planche PNG/WebP et son JSON, ou un pack seul.
+  Un cycle de plusieurs poses `walk` est nécessaire pour articuler la marche.
+- Une image avec décor reste rectangulaire. Utilisez un personnage détouré et recadré,
+  en PNG/WebP avec transparence. Convertir une photo opaque en PNG ne suffit pas.
 
 - L’atelier commence par les images, sans identité obligatoire. La section **Aider à identifier**
   permet de conserver des liens de référence. Ils ne sont pas encore consultés par une IA.
@@ -36,16 +49,18 @@ appels Discord ne sont pas connectés. Les dialogues restent locaux. Aucun appel
 
 ## Provenance et validation
 
-- Code : `759c05a` de `feat/desktop-context-and-character-tuning`, version 0.2.0.
-- [Workflow Windows réussi](https://github.com/TanguyGrd/persona/actions/runs/42529343181) : tests
+- Code : `fed2f0a` de `feat/desktop-chat-and-media`, version 0.3.0.
+- [Workflow Windows réussi](https://github.com/TanguyGrd/persona/actions/runs/42690431986) : tests
   du frontend/stockage/contrôleur, tests Rust, compilation optimisée, NSIS, dépôt de l’artefact.
-- [Workflow Chrome/Linux réussi](https://github.com/TanguyGrd/persona/actions/runs/42529343206) :
+- [Workflow Chrome/Linux réussi](https://github.com/TanguyGrd/persona/actions/runs/42690432065) :
   typage, tests unitaires, suite Chrome E2E et vérification du ZIP dans Chromium.
-- Tests : 119 unitaires, 26 bureau, 7 Rust, suite Chrome E2E de 15 tests. Le pont bureau des tests
+- Tests : 119 unitaires, 34 bureau, 7 Rust, suite Chrome E2E de 15 tests. Le pont bureau des tests
   Chromium est simulé ; ce n’est pas une validation interactive native de Windows.
-- Artefact : 1,98 MB, SHA256 publié par GitHub :
-  `e31eb7d073ea53f0e5eabd61a8b3d21da420d19305a00e2a71751c267c3093b1`.
+- Artefact : 2 MB, SHA256 publié par GitHub :
+  `df8a63a3641cfbfedb114a4c9b4b907a69c6fb9275e91acc7cf44b0c0de30815`.
 
 Aucune release publique ni fusion n’a été effectuée : ce ZIP est un artefact de CI soumis à la durée
-de conservation GitHub. [Détails techniques et limites de 0.2](DESKTOP-CONTEXT-V02.md).
+de conservation GitHub. [Guide, commandes et limites de 0.3](DESKTOP-CHAT-V03.md).
+La [bêta 0.2 précédente](https://github.com/TanguyGrd/persona/actions/runs/42529343181) et
+[ses limites](DESKTOP-CONTEXT-V02.md) restent documentées.
 La [première version 0.1](https://github.com/TanguyGrd/persona/actions/runs/42518500894) reste historique.
