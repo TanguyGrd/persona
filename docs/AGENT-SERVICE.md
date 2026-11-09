@@ -3,6 +3,20 @@
 Branche : `feat/desktop-connected-agent`, issue de la bêta 0.3. Aucun déploiement public,
 paiement, abonnement ni appel réel à un fournisseur IA n’a été effectué.
 
+[Installation Windows](INSTALLER-WINDOWS.md) · [Comparaison et brouillon de PR](AGENT-PR.md).
+
+Le commit `de4a92f` a passé les workflows
+[Windows](https://github.com/TanguyGrd/persona/actions/runs/42704968854) et
+[Chrome/Linux](https://github.com/TanguyGrd/persona/actions/runs/42704968566) :
+127 tests unitaires, 40 tests bureau, 7 tests serveur HTTP, 12 tests Rust et 15 tests
+Chrome E2E. Le build produit l’installeur NSIS et le paquet du serveur.
+
+![Bulle et journal dans Chromium, fournisseur IA et Windows simulés](screenshots/v04-connected-agent.png)
+
+[Démonstration de l’interface, 7,88 secondes](demos/v04-agent-frontend.webm).
+Le fournisseur, les outils Windows et la voix y sont simulés ; cette vidéo ne démontre
+pas un appel d’un modèle réel ni le contrôle d’un lecteur Windows.
+
 ## Ce que cette tranche ajoute
 
 La bulle sait maintenant utiliser un service IA au lieu de se limiter au sélecteur local
