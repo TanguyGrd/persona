@@ -29,6 +29,22 @@ pub struct SavedPosition {
     pub y: i32,
 }
 
+/// Preserve the companion's physical displacement while its chat panel is enlarged.
+pub fn moved_panel_restore(
+    start_panel: SavedPosition,
+    end_panel: SavedPosition,
+    companion: SavedPosition,
+) -> SavedPosition {
+    let translate = |start: i32, end: i32, saved: i32| {
+        (i64::from(saved) + i64::from(end) - i64::from(start))
+            .clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32
+    };
+    SavedPosition {
+        x: translate(start_panel.x, end_panel.x, companion.x),
+        y: translate(start_panel.y, end_panel.y, companion.y),
+    }
+}
+
 /// Clamp the whole window to a monitor's work area (which excludes the taskbar).
 pub fn clamp_position(
     pos: SavedPosition,
@@ -47,6 +63,26 @@ pub fn clamp_position(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn dragging_the_chat_preserves_the_companions_displacement_on_close() {
+        assert_eq!(
+            moved_panel_restore(
+                SavedPosition { x: -1200, y: 100 },
+                SavedPosition { x: -900, y: 220 },
+                SavedPosition { x: -1170, y: 380 }
+            ),
+            SavedPosition { x: -870, y: 500 }
+        );
+        assert_eq!(
+            moved_panel_restore(
+                SavedPosition { x: i32::MIN, y: 0 },
+                SavedPosition { x: i32::MAX, y: 0 },
+                SavedPosition { x: 1, y: 2 }
+            )
+            .x,
+            i32::MAX
+        );
+    }
 
     #[test]
     fn hit_regions_use_logical_coordinates_and_exclude_far_edges() {

@@ -1,10 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod agent_service;
+mod agent_tools;
 mod geometry;
 mod media;
 mod motion;
 
-use geometry::{clamp_position, HitRegion, SavedPosition};
+use geometry::{clamp_position, moved_panel_restore, HitRegion, SavedPosition};
 use std::{
     fs,
     path::PathBuf,
@@ -34,6 +36,7 @@ struct DesktopState {
     running: Arc<AtomicBool>,
     position_file: PathBuf,
     menu_position: Arc<Mutex<Option<SavedPosition>>>,
+    panel_drag: Arc<Mutex<Option<(SavedPosition, SavedPosition)>>>,
     motion: Arc<Mutex<motion::State>>,
 }
 
@@ -80,6 +83,7 @@ fn set_panel_open(
     window: &WebviewWindow,
     state: &DesktopState,
 ) -> Result<(), String> {
+    finish_panel_drag(window, state)?;
     state
         .motion
         .lock()
@@ -102,7 +106,7 @@ fn set_panel_open(
         let scale = window.scale_factor().map_err(|e| e.to_string())?;
         let monitor = window.current_monitor().map_err(|e| e.to_string())?;
         let desired = if compact {
-            (420.0_f64, 600.0_f64)
+            (480.0_f64, 720.0_f64)
         } else {
             (980.0, 760.0)
         };
@@ -164,8 +168,26 @@ fn set_panel_open(
     Ok(())
 }
 
+fn finish_panel_drag(window: &WebviewWindow, state: &DesktopState) -> Result<(), String> {
+    let drag = state.panel_drag.lock().map_err(|e| e.to_string())?.take();
+    if let Some((start, companion)) = drag {
+        let end = window.outer_position().map_err(|e| e.to_string())?;
+        let restored = moved_panel_restore(start, SavedPosition { x: end.x, y: end.y }, companion);
+        let mut saved = state.menu_position.lock().map_err(|e| e.to_string())?;
+        if saved.is_some() {
+            *saved = Some(restored);
+            drop(saved);
+            *state.position.lock().map_err(|e| e.to_string())? = Some((restored, Instant::now()));
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
-async fn pause_media() -> Result<media::PauseResult, String> {
+async fn pause_media(window: WebviewWindow) -> Result<media::PauseResult, String> {
+    if window.label() != "main" {
+        return Err("Commande réservée au compagnon.".into());
+    }
     tauri::async_runtime::spawn_blocking(media::pause)
         .await
         .map_err(|error| error.to_string())?
@@ -236,10 +258,22 @@ fn start_dragging(window: WebviewWindow, state: State<'_, DesktopState>) -> Resu
         .lock()
         .map_err(|e| e.to_string())?
         .captured = true;
+    let previous = *state.menu_position.lock().map_err(|e| e.to_string())?;
+    if let Some(companion) = previous {
+        let start = window.outer_position().map_err(|e| e.to_string())?;
+        *state.panel_drag.lock().map_err(|e| e.to_string())? = Some((
+            SavedPosition {
+                x: start.x,
+                y: start.y,
+            },
+            companion,
+        ));
+    }
     window
         .set_ignore_cursor_events(false)
         .map_err(|e| e.to_string())?;
     if let Err(error) = window.start_dragging() {
+        *state.panel_drag.lock().map_err(|e| e.to_string())? = None;
         state
             .interaction
             .lock()
@@ -429,31 +463,44 @@ fn save_position(state: &DesktopState, force: bool) {
 
 fn start_native_loop(window: WebviewWindow, state: DesktopState) {
     std::thread::spawn(move || {
+        #[cfg(windows)]
+        let mut escape_was_down = false;
         while state.running.load(Ordering::Relaxed) {
             #[cfg(windows)]
             {
                 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-                    GetAsyncKeyState, VK_LBUTTON,
+                    GetAsyncKeyState, VK_ESCAPE, VK_LBUTTON,
                 };
-                let (captured, ready, regions) = {
+                // Observe only the stop key; never consume it or collect typed input.
+                let escape_down = unsafe { GetAsyncKeyState(i32::from(VK_ESCAPE)) } < 0;
+                if escape_down && !escape_was_down {
+                    let _ = window.emit("agent-stop", ());
+                }
+                escape_was_down = escape_down;
+                let (captured, ready, regions, released) = {
                     let mut interaction = state.interaction.lock().unwrap();
                     // Query the global physical button even when the WebView
                     // receives no mouse events (click-through or OS drag).
-                    if interaction.captured
-                        && unsafe { GetAsyncKeyState(i32::from(VK_LBUTTON)) } >= 0
-                    {
+                    let released = interaction.captured
+                        && unsafe { GetAsyncKeyState(i32::from(VK_LBUTTON)) } >= 0;
+                    if released {
                         interaction.captured = false;
                     }
                     (
                         interaction.captured,
                         interaction.ready,
                         interaction.regions.clone(),
+                        released,
                     )
                 };
+                if released {
+                    let _ = finish_panel_drag(&window, &state);
+                }
                 // Never hold a state mutex across a Tauri call: its platform
                 // implementation may need to dispatch to the UI thread.
-                let menu_open = { state.menu_position.lock().unwrap().is_some() };
-                let ignore = if menu_open || captured {
+                // Panels publish their actual opaque rectangles. A chat panel
+                // must not turn the empty area around the avatar into an input trap.
+                let ignore = if captured {
                     false
                 } else if !ready {
                     true
@@ -518,22 +565,51 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             report(show_companion(app, false));
         }))
-        .invoke_handler(tauri::generate_handler![
-            desktop_ready,
-            set_launcher_open,
-            set_chat_open,
-            pause_media,
-            set_hit_regions,
-            set_pointer_capture,
-            start_dragging,
-            hide_companion,
-            show_settings,
-            quit_app,
-            configure_motion,
-            desktop_world,
-            walk_desktop,
-            perch_companion
-        ])
+        .invoke_handler({
+            let handler: Box<dyn Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync> =
+                Box::new(tauri::generate_handler![
+                    desktop_ready,
+                    set_launcher_open,
+                    set_chat_open,
+                    pause_media,
+                    agent_service::agent_status,
+                    agent_service::agent_pair,
+                    agent_service::agent_disconnect,
+                    agent_service::agent_step,
+                    agent_service::agent_cancel,
+                    agent_tools::agent_tool,
+                    set_hit_regions,
+                    set_pointer_capture,
+                    start_dragging,
+                    hide_companion,
+                    show_settings,
+                    quit_app,
+                    configure_motion,
+                    desktop_world,
+                    walk_desktop,
+                    perch_companion
+                ]);
+            move |invoke: tauri::ipc::Invoke<tauri::Wry>| {
+                let webview = invoke.message.webview_ref();
+                let trusted = webview
+                    .url()
+                    .map(|url| {
+                        agent_service::trusted_companion(
+                            webview.label(),
+                            &url,
+                            cfg!(debug_assertions),
+                        )
+                    })
+                    .unwrap_or(false);
+                if !trusted {
+                    invoke.resolver.reject(
+                        "Application commands are restricted to the bundled Persona companion.",
+                    );
+                    return true;
+                }
+                handler(invoke)
+            }
+        })
         .setup(|app| {
             let window = app
                 .get_webview_window("main")
@@ -543,10 +619,12 @@ fn main() {
                 position: Arc::new(Mutex::new(None)),
                 running: Arc::new(AtomicBool::new(true)),
                 menu_position: Arc::new(Mutex::new(None)),
+                panel_drag: Arc::new(Mutex::new(None)),
                 motion: Arc::new(Mutex::new(motion::State::default())),
                 position_file: app.path().app_config_dir()?.join("window-position.json"),
             };
             app.manage(state.clone());
+            app.manage(agent_service::AgentRelay::new()?);
             restore_position(&window, &state, false)?;
             #[cfg(windows)]
             window.set_ignore_cursor_events(true)?;
@@ -626,7 +704,22 @@ fn main() {
                     report(event_window.hide());
                 }
                 WindowEvent::Moved(position) => {
-                    if event_state.menu_position.lock().unwrap().is_some() {
+                    let panel_open = { event_state.menu_position.lock().unwrap().is_some() };
+                    if panel_open {
+                        let drag = *event_state.panel_drag.lock().unwrap();
+                        if let Some((start, companion)) = drag {
+                            let mut saved = event_state.menu_position.lock().unwrap();
+                            if saved.is_some() {
+                                *saved = Some(moved_panel_restore(
+                                    start,
+                                    SavedPosition {
+                                        x: position.x,
+                                        y: position.y,
+                                    },
+                                    companion,
+                                ));
+                            }
+                        }
                         return;
                     }
                     *event_state.position.lock().unwrap() = Some((

@@ -20,6 +20,11 @@ Deux hôtes réutilisent le même moteur : **extension Chrome (Manifest V3)** et
 avec Tauri 2**. Le guide de [lancement Windows](docs/WINDOWS.md#2-application-de-bureau-windows-mvp)
 décrit les outils requis et la validation native à effectuer sur un PC Windows.
 
+La branche `feat/desktop-connected-agent` (0.4) ajoute le serveur Persona, la connexion
+par appareil, une boucle modèle/outils/résultats, un journal et l’arrêt des tâches, ainsi
+qu’une lecture vocale système optionnelle. **Le fournisseur et l’hébergement IA ne sont
+pas encore activés.** [Fonctions, adaptation de Capri et mise en route](docs/AGENT-SERVICE.md).
+
 Sur la branche `feat/desktop-chat-and-media`, la bêta Windows 0.3 ajoute une **bulle de saisie au clic**,
 une commande de pause média Windows et l’import des animations existantes depuis l’atelier.
 La conversation IA, l’animation réaliste depuis une photo et les appels Discord restent à connecter.

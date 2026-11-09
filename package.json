@@ -1,6 +1,6 @@
 {
   "name": "persona-companion",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Persona — compagnon animé et personnalisable pour Chrome et Windows.",
   "type": "module",
@@ -21,7 +21,10 @@
     "desktop:build": "tauri build --bundles nsis",
     "desktop:check": "cargo check --manifest-path src-tauri/Cargo.toml --locked",
     "desktop:test:native": "cargo test --manifest-path src-tauri/Cargo.toml --locked",
-    "test:desktop": "vitest run --config vitest.desktop.config.ts"
+    "test:desktop": "vitest run --config vitest.desktop.config.ts",
+    "agent:build": "node scripts/build-agent-service.mjs",
+    "agent:serve": "node scripts/build-agent-service.mjs && node dist/agent-service/service.mjs",
+    "test:service": "vitest run --config vitest.service.config.ts"
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.12.4",
@@ -34,6 +37,7 @@
     "vitest": "5.0.5"
   },
   "dependencies": {
-    "@tauri-apps/api": "2.12.4"
+    "@tauri-apps/api": "2.12.4",
+    "undici": "7.30.2"
   }
 }

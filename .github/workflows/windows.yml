@@ -21,11 +21,15 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      - run: npm run test:service
+      - run: npm run agent:build
       - run: npx playwright install chromium
       - run: npm run test:desktop
       - run: npm run desktop:frontend
       - run: npm run desktop:test:native
       - run: npm run desktop:build -- --ci
+        env:
+          PERSONA_SERVICE_URL: ${{ vars.PERSONA_SERVICE_URL }}
       - uses: actions/upload-artifact@v4
         with:
           name: persona-windows-unsigned

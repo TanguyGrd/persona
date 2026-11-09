@@ -9,6 +9,8 @@ pub enum PauseStatus {
     NotPlaying,
     Refused,
     Unconfirmed,
+    Played,
+    AlreadyPlaying,
 }
 
 #[derive(Serialize)]
@@ -19,7 +21,7 @@ pub struct PauseResult {
 /// Uses Windows' selected media session. Never sends a play/pause toggle or
 /// spacebar to an arbitrary foreground application. No titles/audio are read.
 #[cfg(windows)]
-pub fn pause() -> Result<PauseResult, String> {
+fn control(play: bool) -> Result<PauseResult, String> {
     use std::{thread, time::Duration};
     use windows::{
         Media::Control::{
@@ -43,19 +45,39 @@ pub fn pause() -> Result<PauseResult, String> {
         }
         let session = manager.GetCurrentSession()?;
         let status = session.GetPlaybackInfo()?.PlaybackStatus()?;
-        if status == Playback::Paused {
-            return Ok(PauseStatus::AlreadyPaused);
+        let desired = if play {
+            Playback::Playing
+        } else {
+            Playback::Paused
+        };
+        if status == desired {
+            return Ok(if play {
+                PauseStatus::AlreadyPlaying
+            } else {
+                PauseStatus::AlreadyPaused
+            });
         }
-        if status != Playback::Playing {
+        if (!play && status != Playback::Playing)
+            || (play && status != Playback::Paused && status != Playback::Stopped)
+        {
             return Ok(PauseStatus::NotPlaying);
         }
-        if !session.TryPauseAsync()?.join()? {
+        let accepted = if play {
+            session.TryPlayAsync()?.join()?
+        } else {
+            session.TryPauseAsync()?.join()?
+        };
+        if !accepted {
             return Ok(PauseStatus::Refused);
         }
         // A successful request alone does not prove playback stopped.
         for _ in 0..12 {
-            if session.GetPlaybackInfo()?.PlaybackStatus()? == Playback::Paused {
-                return Ok(PauseStatus::Paused);
+            if session.GetPlaybackInfo()?.PlaybackStatus()? == desired {
+                return Ok(if play {
+                    PauseStatus::Played
+                } else {
+                    PauseStatus::Paused
+                });
             }
             thread::sleep(Duration::from_millis(80));
         }
@@ -67,6 +89,12 @@ pub fn pause() -> Result<PauseResult, String> {
 }
 
 #[cfg(not(windows))]
-pub fn pause() -> Result<PauseResult, String> {
+fn control(_play: bool) -> Result<PauseResult, String> {
     Err("Le contrôle média nécessite Windows.".into())
+}
+pub fn pause() -> Result<PauseResult, String> {
+    control(false)
+}
+pub fn play() -> Result<PauseResult, String> {
+    control(true)
 }

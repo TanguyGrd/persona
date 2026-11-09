@@ -1,5 +1,11 @@
 # Audit des projets de référence
 
+Mise à jour du 9 novembre 2026 : l’agent de la branche `feat/desktop-connected-agent`
+réutilise désormais les seuls utilitaires textuels `SentenceChunker` et `speakable`
+de Capri Companion sous MIT, avec notice embarquée. Aucun asset ni code de Capri Desktop
+non commercial n’est repris. Le détail historique ci-dessous décrit l’état du 30 octobre ;
+voir [l’audit et le périmètre de 0.4](AGENT-SERVICE.md#sources-licences-et-réutilisation).
+
 Date de l’audit : 30 octobre 2026. Dépôts clonés en lecture seule, hors de ce dépôt.
 
 ## 1. `lachydotmcg/capri-desktop`

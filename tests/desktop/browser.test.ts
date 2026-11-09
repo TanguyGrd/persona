@@ -13,6 +13,7 @@ interface Harness {
   calls: Call[];
   responses: Record<string, unknown>;
   failures: Record<string, string>;
+  queues: Record<string, unknown[]>;
   emit(event: string): void;
   stop: () => void;
   importPack(pack: unknown): Promise<ImportResult>;
@@ -36,12 +37,19 @@ beforeAll(async () => {
       contents: `import {startDesktop} from './src/hosts/windows/desktop';
         import {importAvatarFiles} from './src/core/avatar/importer';
         import {createAvatarView} from './src/stage/avatarView';
-        const handlers=new Map();
-        window.desktopHarness={calls:[],responses:{},failures:{},emit(event){handlers.get(event)?.();},stop(){},
+        const handlers=new Map(),pending=new Map();
+        window.desktopHarness={calls:[],responses:{},failures:{},queues:{},emit(event){handlers.get(event)?.();},stop(){},
           renderWalk(avatar){const view=createAvatarView(avatar);view.el.id='walk-render-test';document.body.append(view.el);view.setClip('walk');},
           importPack(pack){return importAvatarFiles([{name:'companion.persona.json',mime:'application/json',size:JSON.stringify(pack).length,text:JSON.stringify(pack)}],{imageSize:async()=>({w:128,h:128})});}};
         const bridge={
-          async invoke(command,args){window.desktopHarness.calls.push({command,args});if(window.desktopHarness.failures[command])throw new Error(window.desktopHarness.failures[command]);return window.desktopHarness.responses[command];},
+          async invoke(command,args){
+            window.desktopHarness.calls.push({command,args});
+            if(command==='agent_cancel'){pending.get(args.requestId)?.(new Error('Stopped simulated request'));return;}
+            if(window.desktopHarness.failures[command])throw new Error(window.desktopHarness.failures[command]);
+            if(command==='agent_step'&&window.desktopHarness.responses.agent_step==='wait')return new Promise((resolve,reject)=>pending.set(args.requestId,reject));
+            const queue=window.desktopHarness.queues[command];if(queue?.length)return queue.shift();
+            return window.desktopHarness.responses[command];
+          },
           async listen(event,handler){handlers.set(event,handler);return ()=>handlers.delete(event);}
         };
         window.desktopHarness.stop=await startDesktop(bridge);`,
@@ -70,13 +78,16 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  const video = process.env.PERSONA_RECORD_AGENT_DEMO ? page?.video() : undefined;
+  await page?.context().close();
+  if (video) await video.saveAs(join(root, 'test-results', 'v04-agent-demo.webm'));
   await browser?.close();
   if (server) await new Promise<void>((resolve) => { server.close(() => resolve()); server.closeAllConnections(); });
 });
 
 beforeEach(async () => {
   await page?.context().close();
-  const context = await browser.newContext({ viewport: { width: 360, height: 320 }, locale: 'fr-FR' });
+  const context = await browser.newContext({ viewport: { width: process.env.PERSONA_RECORD_AGENT_DEMO ? 480 : 360, height: process.env.PERSONA_RECORD_AGENT_DEMO ? 720 : 320 }, locale: 'fr-FR', ...(process.env.PERSONA_RECORD_AGENT_DEMO ? { recordVideo: { dir: join(root, 'test-results', 'agent-demo'), size: { width: 480, height: 720 } } } : {}) });
   await context.addInitScript(() => { if (!localStorage.getItem('persona:desktop:welcome-done')) localStorage.setItem('persona:desktop:welcome-done', '1'); });
   page = await context.newPage();
   await page.goto(url);
@@ -390,6 +401,124 @@ describe('desktop frontend with real Chromium and mocked native IPC', () => {
     await emit('desktop-settings');
     await expect.poll(() => page.locator('#settings').isVisible()).toBe(true);
     expect(await page.locator('#conversation').isVisible()).toBe(false);
+  });
+
+  it('runs the connected agent through model, native action and observed result, with a visible action journal', async () => {
+    await page.evaluate(() => {
+      window.desktopHarness.responses.agent_status = { state: 'ready', detail: 'Service simulé pour le test.' };
+      window.desktopHarness.responses.agent_tool = { ok: true, summary: 'État Paused observé par le lecteur simulé.' };
+      window.desktopHarness.queues.agent_step = [
+        { text: 'Vérification demandée.', calls: [{ id: 'pause-model', name: 'media_pause', args: {} }] },
+        { text: 'Le lecteur de test confirme la pause.', calls: [] },
+      ];
+    });
+    await settled(); await hit().click(); await page.setViewportSize({ width: 480, height: 720 });
+    await expect.poll(() => page.locator('#conversation-mode').textContent()).toBe('Conversation via Persona');
+    if (process.env.PERSONA_RECORD_AGENT_DEMO) {
+      await page.evaluate(() => { const label = document.createElement('p'); label.textContent = 'Démo de l’interface · IA et Windows simulés'; label.style.cssText = 'position:fixed;top:460px;left:12px;right:12px;text-align:center;font:11px system-ui;color:#527461;z-index:2147483647'; document.body.append(label); });
+      await page.waitForTimeout(800);
+      await page.locator('#conversation-input').pressSequentially('Tu peux mettre ma chanson en pause, s’il te plaît ?', { delay: 30 });
+    } else await page.locator('#conversation-input').fill('Tu peux mettre ma chanson en pause, s’il te plaît ?');
+    await page.locator('#conversation-input').press('Enter');
+    await expect.poll(() => page.locator('#conversation-messages').textContent()).toContain('lecteur de test confirme');
+    expect(await page.locator('#action-journal [data-state="success"]').count()).toBe(1);
+    expect(await page.locator('#action-journal').textContent()).toContain('Paused observé');
+    const calls = await page.evaluate(() => window.desktopHarness.calls.filter((call) => ['agent_step','agent_tool'].includes(call.command)));
+    expect(calls.map((call) => call.command)).toEqual(['agent_step','agent_tool','agent_step']);
+    expect(calls[2]?.args?.request).toMatchObject({ messages: expect.arrayContaining([expect.objectContaining({ role: 'tool', content: expect.stringContaining('Paused observé') })]) });
+    expect(await commands()).not.toContain('pause_media');
+    if (process.env.PERSONA_RECORD_AGENT_DEMO) await page.waitForTimeout(2200);
+    await page.screenshot({ path: join(root, 'test-results', 'v04-connected-agent.png') });
+    await expect.poll(() => page.evaluate(() => {
+      const calls = window.desktopHarness.calls.filter((call) => call.command === 'set_hit_regions');
+      const regions = calls.at(-1)?.args?.regions as { x: number; y: number; width: number; height: number }[] | undefined;
+      return !!regions && !regions.some((r) => 24 >= r.x && 24 < r.x + r.width && 500 >= r.y && 500 < r.y + r.height);
+    })).toBe(true);
+  });
+
+  it('executes a requested greeting in the existing animated stage even without a cloud service', async () => {
+    await settled(); await hit().click(); await page.setViewportSize({ width: 480, height: 720 });
+    await page.locator('#conversation-input').fill('Fais-moi un coucou');
+    await page.locator('#conversation-send').click();
+    await expect.poll(() => actor().getAttribute('data-activity')).toBe('wave');
+    expect(await page.locator('persona-companion .pc-avatar').getAttribute('data-clip')).toBe('wave');
+    await expect.poll(() => page.locator('#action-journal [data-state="success"]').count()).toBe(1);
+    expect(await commands()).not.toContain('agent_tool');
+    expect(await commands()).not.toContain('agent_step');
+  });
+
+  it('stops a pending model request with the stop button and with the native global-stop event', async () => {
+    await page.evaluate(() => { window.desktopHarness.responses.agent_status = { state: 'ready', detail: 'Simulated service.' }; window.desktopHarness.responses.agent_step = 'wait'; });
+    await settled(); await hit().click(); await page.setViewportSize({ width: 480, height: 720 });
+    await expect.poll(() => page.locator('#conversation-mode').textContent()).toBe('Conversation via Persona');
+    await page.locator('#conversation-input').fill('Bonjour'); await page.locator('#conversation-send').click();
+    await expect.poll(() => commands()).toContain('agent_step');
+    await page.locator('#conversation-stop').click();
+    await expect.poll(() => commands()).toContain('agent_cancel');
+    await expect.poll(() => page.locator('#conversation-send').isEnabled()).toBe(true);
+    await page.locator('#conversation-input').fill('Nouvelle demande'); await page.locator('#conversation-send').click();
+    await expect.poll(async () => (await commands()).filter((command) => command === 'agent_step').length).toBe(2);
+    await emit('agent-stop');
+    await expect.poll(() => page.locator('#conversation-send').isEnabled()).toBe(true);
+    expect((await commands()).filter((command) => command === 'agent_cancel')).toHaveLength(2);
+    expect(await commands()).not.toContain('agent_tool');
+    expect(await page.locator('#conversation-messages').textContent()).toContain('Tâche arrêtée');
+  });
+
+  it('rejects a model tool outside the allowlist and still supports local app opening when the service is unavailable', async () => {
+    await page.evaluate(() => { window.desktopHarness.responses.agent_status = { state: 'ready', detail: 'Simulated service.' }; window.desktopHarness.responses.agent_step = { text: 'Opening.', calls: [{ id: 'unsafe', name: 'shell', args: { command: 'anything' } }] }; });
+    await settled(); await hit().click(); await page.setViewportSize({ width: 480, height: 720 });
+    await expect.poll(() => page.locator('#conversation-mode').textContent()).toBe('Conversation via Persona');
+    await page.locator('#conversation-input').fill('Fais une action'); await page.locator('#conversation-send').click();
+    await expect.poll(() => page.locator('#conversation-messages').textContent()).toContain('Outil indisponible');
+    expect(await commands()).not.toContain('agent_tool');
+    await page.evaluate(() => { window.desktopHarness.responses.agent_status = { state: 'unavailable', detail: 'Service absent dans ce test.' }; window.desktopHarness.responses.agent_tool = { ok: true, summary: 'Demande d’ouverture acceptée par Windows (simulé). Aucun appel lancé.' }; });
+    await page.locator('#service-connection summary').click();
+    await page.locator('#connection-refresh').click();
+    await expect.poll(() => page.locator('#conversation-mode').textContent()).toContain('Commandes locales');
+    await page.getByRole('button', { name: 'Discord', exact: true }).click();
+    await expect.poll(() => page.locator('#conversation-messages').textContent()).toContain('Aucun appel lancé');
+    expect(await page.evaluate(() => window.desktopHarness.calls.filter((call) => call.command === 'agent_tool').at(-1)?.args)).toMatchObject({ call: { name: 'open_application', args: { application: 'discord' } } });
+  });
+
+  it('pairs a device using a one-time service code without exposing a provider-key field', async () => {
+    await page.evaluate(() => { window.desktopHarness.responses.agent_status = { state: 'notPaired', detail: 'Code de connexion requis.' }; });
+    await settled(); await hit().click(); await page.setViewportSize({ width: 480, height: 720 });
+    await page.locator('#service-connection summary').click();
+    await page.locator('#connection-code').fill('fixture-pairing-code');
+    await page.evaluate(() => { window.desktopHarness.responses.agent_status = { state: 'ready', detail: 'Connecté au service simulé.' }; });
+    await page.getByRole('button', { name: 'Connecter cet appareil', exact: true }).click();
+    await expect.poll(() => page.locator('#conversation-mode').textContent()).toBe('Conversation via Persona');
+    expect(await page.locator('#connection-code').inputValue()).toBe('');
+    expect(await page.locator('input[type="password"]').count()).toBe(0);
+    expect(await page.locator('#connection-status').textContent()).not.toContain('fixture-pairing-code');
+    expect(await commands()).toContain('agent_pair');
+  });
+
+  it('reads replies only after voice opt-in and cancels the simulated system voice on the stop event', async () => {
+    await page.addInitScript(() => {
+      const state = { spoken: [] as string[], cancelled: 0 };
+      (window as unknown as { voiceHarness: typeof state }).voiceHarness = state;
+      class Utterance { lang = ''; text: string; onstart?: () => void; onend?: () => void; onerror?: () => void; constructor(text: string) { this.text = text; } }
+      Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable: true, value: Utterance });
+      Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: { getVoices: () => [], cancel: () => { state.cancelled++; }, speak: (utterance: Utterance) => { state.spoken.push(utterance.text); utterance.onstart?.(); } } });
+    });
+    await page.reload(); await expect.poll(() => commands()).toContain('desktop_ready');
+    await page.evaluate(() => { window.desktopHarness.responses.agent_status = { state: 'ready', detail: 'Simulated service.' }; window.desktopHarness.responses.agent_step = { text: 'Bonjour, je reste dans le coin.', calls: [] }; });
+    await settled(); await hit().click(); await page.setViewportSize({ width: 480, height: 720 });
+    await expect.poll(() => page.locator('#conversation-mode').textContent()).toBe('Conversation via Persona');
+    expect(await page.locator('#conversation-voice').isChecked()).toBe(false);
+    await page.locator('#conversation-input').fill('Bonjour'); await page.locator('#conversation-send').click();
+    await expect.poll(() => page.locator('#conversation-send').isEnabled()).toBe(true);
+    expect(await page.evaluate(() => (window as unknown as { voiceHarness: { spoken: string[] } }).voiceHarness.spoken)).toEqual([]);
+    await page.locator('#conversation-voice').check();
+    await page.locator('#conversation-input').fill('Redis-moi bonjour'); await page.locator('#conversation-send').click();
+    await expect.poll(() => page.evaluate(() => (window as unknown as { voiceHarness: { spoken: string[] } }).voiceHarness.spoken.length)).toBe(1);
+    await expect.poll(() => page.locator('persona-companion .pc-avatar').getAttribute('data-mouth')).toBe('open');
+    const before = await page.evaluate(() => (window as unknown as { voiceHarness: { cancelled: number } }).voiceHarness.cancelled);
+    await emit('agent-stop');
+    expect(await page.evaluate(() => (window as unknown as { voiceHarness: { cancelled: number } }).voiceHarness.cancelled)).toBeGreaterThan(before);
+    expect(await page.locator('persona-companion .pc-avatar').getAttribute('data-mouth')).toBeNull();
   });
 
   it('imports an existing walk animation, persists its clips and renders changing transparent frames', async () => {

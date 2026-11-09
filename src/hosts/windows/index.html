@@ -69,10 +69,16 @@
     <footer><button id="hide" type="button">Masquer</button><button id="quit" type="button">Quitter Persona</button></footer>
   </section>
   <section id="conversation" aria-labelledby="conversation-title" hidden>
-    <header><div><strong id="conversation-title">Parler au compagnon</strong><p class="chat-mode">Commandes locales · IA non connectée</p></div><button id="conversation-close" type="button" aria-label="Fermer la conversation">×</button></header>
+    <header><div><strong id="conversation-title">Parler au compagnon</strong><p id="conversation-mode" class="chat-mode">Commandes locales · IA non connectée</p></div><button id="conversation-close" type="button" aria-label="Fermer la conversation">×</button></header>
     <div id="conversation-messages" role="log" aria-live="polite" aria-relevant="additions text"></div>
-    <div class="chat-suggestions"><button type="button" data-prompt="Mets la vidéo en pause">⏸ Mettre en pause</button><button type="button" data-prompt="Que peux-tu faire ?">Aide</button></div>
-    <form id="conversation-form"><label class="sr-only" for="conversation-input">Votre message</label><input id="conversation-input" maxlength="1000" placeholder="Écrivez votre demande…" autocomplete="off"><button id="conversation-send" type="submit">Envoyer</button></form>
+    <details id="action-details"><summary>Journal des actions</summary><div id="action-journal" role="log" aria-live="polite"></div></details>
+    <div class="chat-suggestions"><button type="button" data-prompt="Mets la vidéo en pause">⏸ Mettre en pause</button><button type="button" data-prompt="Ouvre Discord">Discord</button><button type="button" data-prompt="Que peux-tu faire ?">Aide</button></div>
+    <form id="conversation-form"><label class="sr-only" for="conversation-input">Votre message</label><input id="conversation-input" maxlength="4000" placeholder="Écrivez votre demande…" autocomplete="off"><button id="conversation-send" type="submit">Envoyer</button></form>
+    <div class="chat-controls"><label><input id="conversation-voice" type="checkbox"> Lire les réponses</label><span id="conversation-phase" role="status"></span><button id="conversation-stop" type="button" hidden>Arrêter</button></div>
+    <details id="service-connection"><summary>Connexion Persona</summary><p id="connection-status" role="status">Le service IA Persona reste à connecter.</p><p>Avec le service connecté, vos messages et le profil du personnage sont transmis à Persona et à son fournisseur IA. Aucune capture d’écran ni aucun son n’est transmis.</p>
+      <form id="connection-form"><div id="connection-pair" hidden><label>Code de connexion fourni par Persona<input id="connection-code" minlength="12" maxlength="80" autocomplete="off"></label><button type="submit">Connecter cet appareil</button></div></form>
+      <button id="connection-refresh" type="button">Vérifier la connexion</button><button id="connection-disconnect" type="button" hidden>Déconnecter cet appareil</button>
+    </details>
   </section>
   <p id="error" role="alert" hidden></p>
   <script type="module" src="windows.js"></script>

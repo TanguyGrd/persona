@@ -38,7 +38,7 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
   };
   const call = (command: string, args?: Record<string, unknown>) => bridge.invoke(command, args);
   const run = (operation: Promise<unknown>) => { void operation.catch(report); };
-  const conversation = createConversation(bridge, report, () => companion?.dismissSpeech());
+  const conversation = createConversation(bridge, report, () => companion?.dismissSpeech(), (speaking) => companion?.setVoiceSpeaking(speaking), () => companion?.wave() ?? false);
   const motion = createDesktopMotion(bridge, report);
   const store = new IndexedDesktopStore(localStorage);
   const repo = new Repository(store);
@@ -80,7 +80,7 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
     companion?.destroy();
     settings = await repo.getSettings();
     const { profile, avatar } = await repo.getActiveCharacter(settings);
-    conversation.setCharacter(profile.name);
+    conversation.setCharacter(profile);
     companion = new Companion({
       profile, avatar, settings, memory: await repo.getMemory(profile.id), owner: 'windows', maxAvatarWidth: 220, maxAvatarHeight: 200,
       callbacks: {
@@ -163,6 +163,7 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
     cleanups.push(await bridge.listen('desktop-show', () => { companion?.show(); }));
     cleanups.push(await bridge.listen('desktop-settings', () => { run(openSettings()); }));
     cleanups.push(await bridge.listen('desktop-menu', () => { run(conversation.close().then(() => launcher.open())); }));
+    cleanups.push(await bridge.listen('agent-stop', () => { conversation.stop(); }));
     on(document.querySelector('#open-launcher')!, 'click', () => { panel.hidden = true; run(conversation.close().then(() => launcher.open())); });
     on(document.querySelector('#close-settings')!, 'click', () => run((async () => { await call('set_launcher_open', { open: false }); panel.hidden = true; })()));
     on(document.querySelector('#hide')!, 'click', () => run((async () => {
@@ -172,7 +173,7 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
     })()));
     on(document.querySelector('#quit')!, 'click', () => run(call('quit_app')));
     on(window, 'keydown', ((event: KeyboardEvent) => {
-      if (event.key === 'Escape') { if (!conversation.panel.hidden) run(conversation.close()); else if (!panel.hidden) run((async () => { await call('set_launcher_open', { open: false }); panel.hidden = true; })()); else if (!launcher.panel.hidden) run(launcher.close()); }
+      if (event.key === 'Escape') { if (!conversation.panel.hidden) conversation.escape(); else if (!panel.hidden) run((async () => { await call('set_launcher_open', { open: false }); panel.hidden = true; })()); else if (!launcher.panel.hidden) run(launcher.close()); }
     }) as EventListener);
     on(form, 'submit', (event) => {
       event.preventDefault();

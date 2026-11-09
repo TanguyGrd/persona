@@ -1,7 +1,6 @@
 /**
- * Agent Interface — future connection to AI tools and models. Nothing here runs today:
- * the free companion works entirely without it. Kept as a contract so hosts and UI can be
- * wired once, then providers (local model, cloud pay-as-you-go…) plug in later.
+ * Agent providers are optional. ConnectedAgent executes validated tools through
+ * a host and obtains model replies from the Persona service. NO_AGENT is the fallback.
  */
 
 /** Offer tiers. No payment logic exists: this only labels which features belong where. */
@@ -30,7 +29,10 @@ export interface AgentTask {
 export type AgentEvent =
   | { type: 'thinking' }
   | { type: 'message'; text: string }
-  | { type: 'action'; name: string; args: Record<string, unknown> }
+  | { type: 'action'; name: string; args: Record<string, unknown>; id?: string }
+  | { type: 'observation'; id: string; name: string; result: import('./protocol').ToolObservation }
+  | { type: 'usage'; inputTokens: number; outputTokens: number }
+  | { type: 'stopped' }
   | { type: 'done' }
   | { type: 'error'; message: string };
 

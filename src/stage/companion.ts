@@ -84,6 +84,7 @@ export class Companion {
   private motionEl: HTMLDivElement;
   private restoreBtn: HTMLButtonElement;
   private bubble: Bubble;
+  private voiceSpeaking = false;
   private view: AvatarView;
   private profile: CharacterProfile;
   private avatar: AvatarAsset;
@@ -169,7 +170,7 @@ export class Companion {
     this.actor.append(this.hit, this.buildToolbar(doc));
 
     this.bubble = new Bubble(doc);
-    this.bubble.onTypingChange = (typing) => this.view.setTalking(typing);
+    this.bubble.onTypingChange = (typing) => this.view.setTalking(typing || this.voiceSpeaking);
 
     this.restoreBtn = doc.createElement('button');
     this.restoreBtn.className = 'pc-restore';
@@ -356,6 +357,14 @@ export class Companion {
   }
 
   dismissSpeech() { this.bubble.close(); }
+  wave() {
+    if (this.destroyed || this.hiddenByUser) return false;
+    this.apply(this.brain.wave(this.now())); return true;
+  }
+  setVoiceSpeaking(speaking: boolean) {
+    if (this.destroyed) return;
+    this.voiceSpeaking = speaking; this.view.setTalking(speaking);
+  }
 
   // ---------------------------------------------------------------- behaviour
 
