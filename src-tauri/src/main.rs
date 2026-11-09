@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod geometry;
+mod media;
 mod motion;
 
 use geometry::{clamp_position, HitRegion, SavedPosition};
@@ -61,35 +62,93 @@ fn set_launcher_open(
     window: WebviewWindow,
     state: State<'_, DesktopState>,
 ) -> Result<(), String> {
+    set_panel_open(open, false, &window, &state)
+}
+
+#[tauri::command]
+fn set_chat_open(
+    open: bool,
+    window: WebviewWindow,
+    state: State<'_, DesktopState>,
+) -> Result<(), String> {
+    set_panel_open(open, true, &window, &state)
+}
+
+fn set_panel_open(
+    open: bool,
+    compact: bool,
+    window: &WebviewWindow,
+    state: &DesktopState,
+) -> Result<(), String> {
     state
         .motion
         .lock()
         .map_err(|e| e.to_string())?
         .interrupt(false);
     let previous = *state.menu_position.lock().map_err(|e| e.to_string())?;
-    if open && previous.is_none() {
-        save_position(&state, true);
-        let origin = window.outer_position().map_err(|e| e.to_string())?;
-        *state.menu_position.lock().map_err(|e| e.to_string())? = Some(SavedPosition {
-            x: origin.x,
-            y: origin.y,
-        });
+    if open {
+        let origin = if let Some(position) = previous {
+            position
+        } else {
+            save_position(state, true);
+            let origin = window.outer_position().map_err(|e| e.to_string())?;
+            let position = SavedPosition {
+                x: origin.x,
+                y: origin.y,
+            };
+            *state.menu_position.lock().map_err(|e| e.to_string())? = Some(position);
+            position
+        };
         let scale = window.scale_factor().map_err(|e| e.to_string())?;
         let monitor = window.current_monitor().map_err(|e| e.to_string())?;
+        let desired = if compact {
+            (420.0_f64, 600.0_f64)
+        } else {
+            (980.0, 760.0)
+        };
         let (width, height) = monitor
             .as_ref()
             .map(|m| {
                 let area = m.work_area();
                 (
-                    980.0_f64.min(f64::from(area.size.width) / scale),
-                    760.0_f64.min(f64::from(area.size.height) / scale),
+                    desired.0.min(f64::from(area.size.width) / scale),
+                    desired.1.min(f64::from(area.size.height) / scale),
                 )
             })
-            .unwrap_or((980.0, 760.0));
+            .unwrap_or(desired);
         window
             .set_size(LogicalSize::new(width, height))
             .map_err(|e| e.to_string())?;
-        window.center().map_err(|e| e.to_string())?;
+        if compact {
+            let mut position = SavedPosition {
+                x: origin.x - ((width - 360.0) * scale / 2.0).round() as i32,
+                y: origin.y - ((height - 320.0) * scale).round() as i32,
+            };
+            if let Some(monitor) = monitor {
+                let area = monitor.work_area();
+                position = clamp_position(
+                    position,
+                    (
+                        area.position.x,
+                        area.position.y,
+                        area.size.width,
+                        area.size.height,
+                    ),
+                    (
+                        (width * scale).round() as u32,
+                        (height * scale).round() as u32,
+                    ),
+                );
+            }
+            window
+                .set_position(PhysicalPosition::new(position.x, position.y))
+                .map_err(|e| e.to_string())?;
+        } else {
+            window.center().map_err(|e| e.to_string())?;
+        }
+        window
+            .set_ignore_cursor_events(false)
+            .map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
     } else if !open {
         if let Some(position) = previous {
@@ -103,6 +162,13 @@ fn set_launcher_open(
         }
     }
     Ok(())
+}
+
+#[tauri::command]
+async fn pause_media() -> Result<media::PauseResult, String> {
+    tauri::async_runtime::spawn_blocking(media::pause)
+        .await
+        .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -455,6 +521,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             desktop_ready,
             set_launcher_open,
+            set_chat_open,
+            pause_media,
             set_hit_regions,
             set_pointer_capture,
             start_dragging,

@@ -6,13 +6,17 @@ import { cp, mkdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { extname, join } from 'node:path';
 import type { ImportResult } from '../../src/core/avatar/importer';
+import type { AvatarAsset } from '../../src/core/avatar/types';
 
 interface Call { command: string; args?: Record<string, unknown> }
 interface Harness {
   calls: Call[];
+  responses: Record<string, unknown>;
+  failures: Record<string, string>;
   emit(event: string): void;
   stop: () => void;
   importPack(pack: unknown): Promise<ImportResult>;
+  renderWalk(avatar: AvatarAsset): void;
 }
 declare global { interface Window { desktopHarness: Harness } }
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -31,11 +35,13 @@ beforeAll(async () => {
     stdin: {
       contents: `import {startDesktop} from './src/hosts/windows/desktop';
         import {importAvatarFiles} from './src/core/avatar/importer';
+        import {createAvatarView} from './src/stage/avatarView';
         const handlers=new Map();
-        window.desktopHarness={calls:[],emit(event){handlers.get(event)?.();},stop(){},
+        window.desktopHarness={calls:[],responses:{},failures:{},emit(event){handlers.get(event)?.();},stop(){},
+          renderWalk(avatar){const view=createAvatarView(avatar);view.el.id='walk-render-test';document.body.append(view.el);view.setClip('walk');},
           importPack(pack){return importAvatarFiles([{name:'companion.persona.json',mime:'application/json',size:JSON.stringify(pack).length,text:JSON.stringify(pack)}],{imageSize:async()=>({w:128,h:128})});}};
         const bridge={
-          async invoke(command,args){window.desktopHarness.calls.push({command,args});},
+          async invoke(command,args){window.desktopHarness.calls.push({command,args});if(window.desktopHarness.failures[command])throw new Error(window.desktopHarness.failures[command]);return window.desktopHarness.responses[command];},
           async listen(event,handler){handlers.set(event,handler);return ()=>handlers.delete(event);}
         };
         window.desktopHarness.stop=await startDesktop(bridge);`,
@@ -327,6 +333,9 @@ describe('desktop frontend with real Chromium and mocked native IPC', () => {
     await hit().click();
     expect(await actor().getAttribute('data-activity')).toBe('react');
     expect(await commands()).not.toContain('start_dragging');
+    await expect.poll(() => page.locator('#conversation').isVisible()).toBe(true);
+    expect(await page.locator('#conversation-input').evaluate((element) => element === document.activeElement)).toBe(true);
+    expect(await commands()).toContain('set_chat_open');
     expect(await page.locator('#error').isVisible()).toBe(false);
   });
 
@@ -347,6 +356,68 @@ describe('desktop frontend with real Chromium and mocked native IPC', () => {
     expect(calls.filter((command) => command === 'start_dragging')).toHaveLength(1);
     expect(await actor().getAttribute('data-activity')).not.toBe('dragging');
     expect(await actor().evaluate((el) => el.style.transform)).toBe(before);
+    expect(await page.locator('#conversation').isVisible()).toBe(false);
+  });
+
+  it('offers typed local commands, reports verified media results and refuses unsupported Discord tasks', async () => {
+    await settled();
+    await hit().click();
+    await page.setViewportSize({ width: 420, height: 600 });
+    await page.evaluate(() => { window.desktopHarness.responses.pause_media = { status: 'paused' }; });
+    await page.locator('#conversation-input').fill('Mets la vidéo en pause');
+    await page.locator('#conversation-input').press('Enter');
+    await expect.poll(() => page.locator('#conversation-messages').textContent()).toContain('Windows confirme');
+    expect((await commands()).filter((command) => command === 'pause_media')).toHaveLength(1);
+    await page.screenshot({ path: join(root, 'test-results', 'v03-conversation.png') });
+    await page.locator('#conversation-input').fill('Va sur Discord et dis à mes amis que j’arrive');
+    await page.locator('#conversation-send').click();
+    await expect.poll(() => page.locator('#conversation-messages').textContent()).toContain('Aucun appel ni message');
+    await page.locator('#conversation-input').fill('<img src=x onerror=alert(1)>');
+    await page.locator('#conversation-send').click();
+    expect(await page.locator('#conversation-messages img').count()).toBe(0);
+    await page.keyboard.press('Escape');
+    await expect.poll(() => page.locator('#conversation').isVisible()).toBe(false);
+    expect(await page.evaluate(() => window.desktopHarness.calls.filter(c => c.command === 'set_chat_open').at(-1)?.args)).toEqual({ open: false });
+  });
+
+  it('keeps media failures in the conversation without claiming success or blocking settings', async () => {
+    await settled(); await hit().click();
+    await page.setViewportSize({ width: 420, height: 600 });
+    await page.evaluate(() => { window.desktopHarness.failures.pause_media = 'Lecteur indisponible'; });
+    await page.getByRole('button', { name: '⏸ Mettre en pause' }).click();
+    await expect.poll(() => page.locator('#conversation-messages').textContent()).toContain('L’action a échoué');
+    expect(await page.locator('#error').isVisible()).toBe(false);
+    await emit('desktop-settings');
+    await expect.poll(() => page.locator('#settings').isVisible()).toBe(true);
+    expect(await page.locator('#conversation').isVisible()).toBe(false);
+  });
+
+  it('imports an existing walk animation, persists its clips and renders changing transparent frames', async () => {
+    await openWorkshop();
+    await page.locator('#animation-import summary').click();
+    const imageData = await page.evaluate(() => {
+      const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 32;
+      const context = canvas.getContext('2d')!;
+      // Distinct test poses with transparent margins; no third-party artwork.
+      context.fillStyle = 'red'; context.fillRect(4, 4, 12, 24);
+      context.fillStyle = 'blue'; context.fillRect(40, 8, 16, 20);
+      return canvas.toDataURL('image/png').split(',')[1]!;
+    });
+    await page.locator('#animation-file').setInputFiles([
+      { name: 'walk.png', mimeType: 'image/png', buffer: Buffer.from(imageData, 'base64') },
+      { name: 'walk.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ format: 'persona-spritesheet', frameWidth: 32, frameHeight: 32, animations: { idle: [0], walk: { frames: [0, 1], fps: 5 } } })) },
+    ]);
+    await expect.poll(() => page.locator('#launcher').isVisible()).toBe(false);
+    const settings = await stored<{ activeProfileId: string }>('settings');
+    const profiles = await stored<Record<string, { avatarId: string }>>('profiles');
+    const avatar = await stored<AvatarAsset>(`avatar:${profiles![settings!.activeProfileId]!.avatarId}`);
+    expect(avatar).toMatchObject({ kind: 'spritesheet', clips: { walk: { frames: [0, 1], fps: 5 } } });
+    await page.evaluate((asset) => window.desktopHarness.renderWalk(asset!), avatar);
+    const canvas = page.locator('#walk-render-test canvas');
+    await expect.poll(() => canvas.evaluate((el: HTMLCanvasElement) => Array.from(el.getContext('2d')!.getImageData(8, 8, 1, 1).data))).toEqual([255, 0, 0, 255]);
+    await expect.poll(() => canvas.evaluate((el: HTMLCanvasElement) => Array.from(el.getContext('2d')!.getImageData(12, 12, 1, 1).data)), { interval: 30 }).toEqual([0, 0, 255, 255]);
+    expect(await canvas.evaluate((el: HTMLCanvasElement) => el.getContext('2d')!.getImageData(0, 0, 1, 1).data[3])).toBe(0);
+    expect(await page.locator('#error').isVisible()).toBe(false);
   });
 
   it('sends a native hide and restores the stage when the tray emits show; quit has its own IPC', async () => {

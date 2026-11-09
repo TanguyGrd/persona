@@ -1,6 +1,6 @@
 [package]
 name = "persona-desktop"
-version = "0.2.0"
+version = "0.3.0"
 description = "Persona desktop companion"
 authors = ["Persona contributors"]
 edition = "2021"
@@ -17,6 +17,7 @@ serde_json = "1"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Dwm", "Win32_Foundation"] }
+windows = { version = "0.62.2", features = ["Media_Control", "Foundation_Collections", "Win32_System_WinRT"] }
 
 [profile.release]
 codegen-units = 1

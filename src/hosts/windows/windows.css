@@ -76,3 +76,20 @@ input[type="range"] { accent-color:#a5c49c; cursor:pointer; }
 
 #settings label:has(input[type="checkbox"]) { justify-content:flex-start; }
 #settings label:has(select[name="dialoguePreset"]) select { width:200px; }
+
+#animation-import summary { cursor:pointer; }
+#animation-import { border:1px solid #78958580; border-radius:10px; padding:10px; }
+#animation-status { font-size:12px; }
+#avatar-preview,.reference .thumb { background-color:#294238; background-image:conic-gradient(#ffffff0c 25%,transparent 0 50%,#ffffff0c 0 75%,transparent 0); background-size:16px 16px; border-radius:8px; }
+#conversation { position:fixed; z-index:2147483647; top:12px; left:12px; right:12px; height:310px; max-height:calc(100% - 36px); display:flex; flex-direction:column; box-sizing:border-box; padding:14px; border:1px solid #9fc6b6; border-radius:18px; background:#f3faf5; box-shadow:0 6px 20px #102e2330; }
+#conversation::after { content:''; position:absolute; top:100%; left:55%; width:14px; height:14px; background:#f3faf5; border-right:1px solid #9fc6b6; border-bottom:1px solid #9fc6b6; transform:translateY(-7px) rotate(45deg); pointer-events:none; }
+.chat-mode { font-size:10px; margin:3px 0 0; color:#527461; }
+#conversation-messages { flex:1; min-height:0; overflow:auto; padding:8px 0; scrollbar-width:thin; }
+.chat-message { max-width:95%; margin:6px 0; padding:8px 10px; border-radius:10px; font-size:12px; white-space:pre-wrap; overflow-wrap:anywhere; background:#e1eee5; }
+.chat-message[data-role="user"] { margin-left:auto; background:#28563f; color:white; }
+.chat-suggestions { display:flex; gap:5px; }
+.chat-suggestions button { font-size:11px; }
+#conversation-form { display:flex; gap:6px; margin-top:8px; }
+#conversation-input { flex:1; width:0; }
+#conversation-send { flex:none; font-size:12px; }
+.sr-only { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }

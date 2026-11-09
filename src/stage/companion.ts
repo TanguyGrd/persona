@@ -20,6 +20,9 @@ export interface CompanionCallbacks {
   walkWorld?(): Pick<World, 'x' | 'minX' | 'maxX'> | undefined;
   /** Return true when the host will execute the walk outside this scene. */
   walkOutside?(directive: Directive): boolean;
+  /** A host may replace local speech with its conversation UI. */
+  openConversation?(): void;
+  conversationOpen?(): boolean;
   /** Persist speech memory (greeting cooldown, recent lines). */
   saveMemory(memory: SpeechMemory): void;
   /** Persist the position after the user moved the character or it walked. */
@@ -207,7 +210,7 @@ export class Companion {
       b.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
       bar.appendChild(b);
     };
-    mk('talk', () => this.talk());
+    mk('talk', () => this.cb.openConversation ? this.cb.openConversation() : this.talk());
     mk('hide', () => this.hide());
     mk('settings', () => this.cb.openSettings());
     return bar;
@@ -352,6 +355,8 @@ export class Companion {
     this.apply(d, true);
   }
 
+  dismissSpeech() { this.bubble.close(); }
+
   // ---------------------------------------------------------------- behaviour
 
   private step() {
@@ -409,7 +414,7 @@ export class Companion {
     if (prevActivity === 'walk' || prevActivity === 'falling') this.savePosition();
     if (d.activity === 'look' || d.activity === 'sleep') this.view.lookAt(null);
 
-    if (d.say) this.speak(d.say, forceSpeech);
+    if (d.say && !this.cb.conversationOpen?.()) this.speak(d.say, forceSpeech);
     this.startLoop();
     this.scheduleStep();
   }
@@ -644,6 +649,7 @@ export class Companion {
     const d = this.brain.click(this.now());
     if (d) this.apply(d);
     this.showToolbar(3000);
+    this.cb.openConversation?.();
   }
 
   private toolbarTimer: ReturnType<typeof setTimeout> | undefined;

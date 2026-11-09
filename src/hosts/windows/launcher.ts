@@ -2,6 +2,7 @@ import { normalizeSourceUrls } from '../../core/profile/persona';
 import { fileKind, MAX_FILE_BYTES, type ImportFile } from '../../core/avatar/importer';
 import { createCompanion, exportCompanionPack, MAX_REFERENCES, MAX_REFERENCE_BYTES, prepareReferences, type PreparedReference } from '../../core/creation/character';
 import { LocalProfileGenerator } from '../../core/profile/generator';
+import { importAnimatedCompanion } from './animationImport';
 import type { Repository } from '../../core/settings/store';
 import { createAvatarView, type AvatarView } from '../../stage/avatarView';
 import type { DesktopBridge } from './desktop';
@@ -49,6 +50,9 @@ export function createLauncher(repo: Repository, bridge: DesktopBridge, activate
     await bridge.invoke('set_launcher_open', { open: false });
     panel.hidden = true;
   };
+  const imageSize = (url: string): Promise<{ w: number; h: number }> => new Promise((resolve, reject) => {
+    const image = new Image(); image.onload = () => resolve({ w: image.naturalWidth, h: image.naturalHeight }); image.onerror = () => reject(new Error('Image illisible.')); image.src = url;
+  });
   const play = async (id: string) => {
     await repo.saveSettings({ activeProfileId: id, enabled: true });
     await activate();
@@ -158,9 +162,7 @@ export function createLauncher(repo: Repository, bridge: DesktopBridge, activate
         loaded.push({ name: file.name, mime: file.type, size: file.size, dataUrl, text: svg ? await file.text() : undefined });
       }
       const prepared = await prepareReferences(loaded, {
-        imageSize: (url) => new Promise((resolve, reject) => {
-          const img = new Image(); img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight }); img.onerror = () => reject(new Error('Une image est illisible. Les références précédentes sont conservées.')); img.src = url;
-        }),
+        imageSize,
       });
       if (current !== revision) return;
       references.push(...prepared.map((reference, index) => ({ prepared: reference, bytes: files[index]!.size })));
@@ -171,6 +173,35 @@ export function createLauncher(repo: Repository, bridge: DesktopBridge, activate
     finally { if (current === revision) { reading = false; updateControls(); input.value = ''; } }
   };
   on(document.querySelector('#avatar-browse')!, 'click', () => input.click());
+  const animationInput = document.querySelector<HTMLInputElement>('#animation-file')!;
+  on(animationInput, 'change', () => {
+    if (busy || reading || !animationInput.files?.length) return;
+    const files = Array.from(animationInput.files);
+    busy = true; updateControls();
+    const status = document.querySelector('#animation-status')!;
+    status.textContent = 'Vérification locale de l’animation…';
+    attempt(async () => {
+      try {
+        const loaded: ImportFile[] = [];
+        if (files.length > 2) throw new Error('Choisissez un pack seul ou une planche avec son JSON.');
+        for (const file of files) {
+          const json = fileKind(file.name, file.type) === 'json';
+          if (file.size > (json ? 48 * 1024 * 1024 : MAX_FILE_BYTES)) throw new Error('Fichier trop volumineux.');
+          if (json) loaded.push({ name: file.name, mime: file.type, size: file.size, text: await file.text() });
+          else {
+            const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error('Lecture impossible.')); reader.readAsDataURL(file); });
+            loaded.push({ name: file.name, mime: file.type, size: file.size, dataUrl });
+          }
+        }
+        const result = await importAnimatedCompanion(repo, loaded, { imageSize });
+        const walking = result.avatar.kind === 'spritesheet' && (result.avatar.clips.walk?.frames.length ?? 0) > 1;
+        status.textContent = walking ? 'Animation importée avec un cycle de marche.' : 'Avatar importé. Aucun cycle de marche articulée détecté.';
+        message(`${status.textContent} ${result.warnings.join(' ')}`);
+        await play(result.profile.id);
+      } catch (error) { status.textContent = String(error); }
+      finally { busy = false; animationInput.value = ''; updateControls(); }
+    });
+  });
   on(input, 'change', () => attempt(() => load(Array.from(input.files ?? []))));
   on(drop, 'keydown', ((event: KeyboardEvent) => {
     if (event.target === drop && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); input.click(); }

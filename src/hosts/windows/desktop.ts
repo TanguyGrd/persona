@@ -1,5 +1,6 @@
 import { applyTerryPersona } from '../../core/profile/persona';
 import { createDesktopMotion } from './motion';
+import { createConversation } from './conversation';
 import { Repository } from '../../core/settings/store';
 import type { Settings } from '../../core/settings/settings';
 import { Companion } from '../../stage/companion';
@@ -37,6 +38,7 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
   };
   const call = (command: string, args?: Record<string, unknown>) => bridge.invoke(command, args);
   const run = (operation: Promise<unknown>) => { void operation.catch(report); };
+  const conversation = createConversation(bridge, report, () => companion?.dismissSpeech());
   const motion = createDesktopMotion(bridge, report);
   const store = new IndexedDesktopStore(localStorage);
   const repo = new Repository(store);
@@ -51,6 +53,7 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
   };
   const field = (name: string) => form.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement;
   const openSettings = async () => {
+    await conversation.close();
     settings = await repo.getSettings();
     const profiles = await repo.listProfiles();
     const select = field('activeProfileId') as HTMLSelectElement;
@@ -77,16 +80,19 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
     companion?.destroy();
     settings = await repo.getSettings();
     const { profile, avatar } = await repo.getActiveCharacter(settings);
+    conversation.setCharacter(profile.name);
     companion = new Companion({
       profile, avatar, settings, memory: await repo.getMemory(profile.id), owner: 'windows', maxAvatarWidth: 220, maxAvatarHeight: 200,
       callbacks: {
         walkWorld: motion.world,
         walkOutside: motion.walk,
+        openConversation: () => run(conversation.open()),
+        conversationOpen: () => !conversation.panel.hidden,
         saveMemory: (memory) => run(repo.saveMemory(profile.id, memory)),
         savePosition: (position) => run(repo.saveSettings({ position })),
         openSettings: () => run(openSettings()),
         placeName: () => 'votre bureau',
-        onHiddenChange: (hidden) => { if (hidden) run(call('hide_companion')); },
+        onHiddenChange: (hidden) => { if (hidden) run(conversation.close().then(() => call('hide_companion'))); },
       },
     }).mount();
   };
@@ -156,8 +162,8 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
     bindDrag();
     cleanups.push(await bridge.listen('desktop-show', () => { companion?.show(); }));
     cleanups.push(await bridge.listen('desktop-settings', () => { run(openSettings()); }));
-    cleanups.push(await bridge.listen('desktop-menu', () => { run(launcher.open()); }));
-    on(document.querySelector('#open-launcher')!, 'click', () => { panel.hidden = true; run(launcher.open()); });
+    cleanups.push(await bridge.listen('desktop-menu', () => { run(conversation.close().then(() => launcher.open())); }));
+    on(document.querySelector('#open-launcher')!, 'click', () => { panel.hidden = true; run(conversation.close().then(() => launcher.open())); });
     on(document.querySelector('#close-settings')!, 'click', () => run((async () => { await call('set_launcher_open', { open: false }); panel.hidden = true; })()));
     on(document.querySelector('#hide')!, 'click', () => run((async () => {
       await call('set_launcher_open', { open: false });
@@ -166,7 +172,7 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
     })()));
     on(document.querySelector('#quit')!, 'click', () => run(call('quit_app')));
     on(window, 'keydown', ((event: KeyboardEvent) => {
-      if (event.key === 'Escape') { if (!panel.hidden) run((async () => { await call('set_launcher_open', { open: false }); panel.hidden = true; })()); else if (!launcher.panel.hidden) run(launcher.close()); }
+      if (event.key === 'Escape') { if (!conversation.panel.hidden) run(conversation.close()); else if (!panel.hidden) run((async () => { await call('set_launcher_open', { open: false }); panel.hidden = true; })()); else if (!launcher.panel.hidden) run(launcher.close()); }
     }) as EventListener);
     on(form, 'submit', (event) => {
       event.preventDefault();
@@ -212,8 +218,8 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
       toolbar.style.paddingRight = useLeft ? '8px' : '0';
       const reduced = settings.reduceMotion === 'on' || (settings.reduceMotion === 'auto' && matchMedia('(prefers-reduced-motion: reduce)').matches);
       if (actorRect.width > 0 && actorRect.height > 0) lastActorGeometry = { anchorX: actorRect.left, actorWidth: actorRect.width, actorHeight: actorRect.height };
-      run(motion.configure({ enabled: settings.desktopRoaming && !reduced, perching: settings.windowPerching, paused: !launcher.panel.hidden || !panel.hidden || !error.hidden || companion!.isHidden, ...lastActorGeometry }));
-      const elements = [launcher.panel, panel, error, ...shadow.querySelectorAll('.pc-hit, .pc-toolbar, .pc-bubble, .pc-restore')];
+      run(motion.configure({ enabled: settings.desktopRoaming && !reduced, perching: settings.windowPerching, paused: !conversation.panel.hidden || !launcher.panel.hidden || !panel.hidden || !error.hidden || companion!.isHidden, ...lastActorGeometry }));
+      const elements = [conversation.panel, launcher.panel, panel, error, ...shadow.querySelectorAll('.pc-hit, .pc-toolbar, .pc-bubble, .pc-restore')];
       const regions = hitRegions(elements, innerWidth, innerHeight);
       const serialized = JSON.stringify(regions);
       if (serialized === last) return;
@@ -235,6 +241,7 @@ export async function startDesktop(bridge: DesktopBridge): Promise<() => void> {
     release();
     for (const cleanup of [...dragCleanups, ...cleanups]) cleanup();
     companion?.destroy();
+    conversation.destroy();
     motion.destroy();
     store.close();
   };

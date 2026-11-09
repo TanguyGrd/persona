@@ -20,6 +20,11 @@ Deux hôtes réutilisent le même moteur : **extension Chrome (Manifest V3)** et
 avec Tauri 2**. Le guide de [lancement Windows](docs/WINDOWS.md#2-application-de-bureau-windows-mvp)
 décrit les outils requis et la validation native à effectuer sur un PC Windows.
 
+Sur la branche `feat/desktop-chat-and-media`, la bêta Windows 0.3 ajoute une **bulle de saisie au clic**,
+une commande de pause média Windows et l’import des animations existantes depuis l’atelier.
+La conversation IA, l’animation réaliste depuis une photo et les appels Discord restent à connecter.
+Voir le [guide et les limites de 0.3](docs/DESKTOP-CHAT-V03.md).
+
 ## Ce que fait le compagnon
 
 - **Entrée en scène** : il sort de derrière le bord de la fenêtre, arrive en sautant ou apparaît dans des étincelles.

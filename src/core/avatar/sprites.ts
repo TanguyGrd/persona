@@ -37,6 +37,8 @@ export interface ParsedSprites {
   warnings: string[];
 }
 
+export const MAX_SPRITE_FRAMES = 512;
+
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const posInt = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
 
@@ -51,7 +53,8 @@ function frameList(spec: unknown, count: number): number[] {
   if (isObj(spec)) {
     const from = Number(spec.from), to = Number(spec.to);
     if (Number.isInteger(from) && Number.isInteger(to) && from <= to) {
-      return Array.from({ length: to - from + 1 }, (_, k) => from + k).filter((i) => i < count);
+      const start = Math.max(0, from), end = Math.min(count - 1, to);
+      return Array.from({ length: Math.max(0, end - start + 1) }, (_, k) => start + k);
     }
   }
   return [];
@@ -65,6 +68,7 @@ function parseGrid(json: Record<string, unknown>, image: { w: number; h: number 
   const rows = Math.floor(image.h / fh);
   if (!cols || !rows) throw new Error('L’image est plus petite qu’une frame.');
   const total = Math.min(posInt(json.frameCount) || cols * rows, cols * rows);
+  if (total > MAX_SPRITE_FRAMES) throw new Error('512 frames maximum par animation.');
   const frames: FrameRect[] = Array.from({ length: total }, (_, i) => ({ x: (i % cols) * fw, y: Math.floor(i / cols) * fh, w: fw, h: fh }));
 
   const clips: ParsedSprites['clips'] = {};
@@ -85,6 +89,7 @@ function parseAseprite(json: Record<string, unknown>): ParsedSprites {
   const warnings: string[] = [];
   const meta = isObj(json.meta) ? json.meta : {};
   const named: { name: string; rect: FrameRect }[] = [];
+  if ((Array.isArray(json.frames) ? json.frames.length : isObj(json.frames) ? Object.keys(json.frames).length : 0) > MAX_SPRITE_FRAMES) throw new Error('512 frames maximum par animation.');
   const toRect = (f: unknown): FrameRect | null => {
     if (!isObj(f) || !isObj(f.frame)) return null;
     const r = f.frame as Record<string, unknown>;
